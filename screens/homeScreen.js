@@ -16,98 +16,95 @@ export default function HomeScreen({ navigation }) {
   console.log("ZOMA TEST VERSION 123");
   const [email, setEmail] = useState("");
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Logo */}
-      <Image
-        source={require("../assets/logo.png")}
-        style={styles.logo}
-        resizeMode="contain"
+ 
+return (
+  <SafeAreaView style={styles.container}>
+    {/* Logo */}
+    <Image
+      source={require("../assets/logo.png")}
+      style={styles.logo}
+      resizeMode="contain"
+    />
+
+    {/* Tout le contenu sous le logo */}
+    <View style={styles.mainContent}>
+      <Text style={styles.text1}>
+        Bienvenue sur Zoma
+      </Text>
+
+      <Text style={styles.text2}>
+        Mandrosoa tompoko ô !
+      </Text>
+
+      <TextInput
+        placeholder="Adresse e-mail"
+        placeholderTextColor="#777777"
+        textContentType="emailAddress"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={styles.inputBox}
+        onChangeText={setEmail}
+        value={email}
       />
 
-      {/* Contenu principal */}
-      <View style={styles.mainContent}>
-        <Text style={styles.text1}>
-          Bienvenue sur Zoma
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate("SignIn")}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.buttonText}>
+          Se connecter
         </Text>
+      </TouchableOpacity>
 
-        <Text style={styles.text2}>
-          Mandrosoa tompoko ô !
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate("signup")}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.buttonText}>
+          Créer un compte
         </Text>
+      </TouchableOpacity>
 
-        <TextInput
-          placeholder="Adresse e-mail"
-          placeholderTextColor="#777777"
-          textContentType="emailAddress"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={styles.inputBox}
-          onChangeText={setEmail}
-          value={email}
-        />
+      <TouchableOpacity
+        style={styles.forgotPassword}
+        onPress={() => navigation.navigate("SignIn")}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.pressableText}>
+          Mot de passe oublié
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </SafeAreaView>
+);
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("SignIn")}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>
-            Se connecter
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("signup")}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>
-            Créer un compte
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lien en bas de l'écran */}
-      <View style={styles.bottomLink}>
-        <TouchableOpacity
-          onPress={() =>
-            navigation.navigate("SignIn")
-          }
-        >
-          <Text style={styles.pressableText}>
-            Mot de passe oublié
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 20,
-    backgroundColor: "#003300",
-  },
+  flex: 1,
+  alignItems: "center",
+  paddingHorizontal: 20,
+  backgroundColor: "#003300",
+},
 
-  logo: {
-    width: "100%",
-    height: 220,
-    resizeMode: "contain",
-    alignSelf: "center",
-    marginTop: 10,
-    marginBottom: 8,
-  },
-
-  mainContent: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 10,
-    gap: 14,
-  },
-
+logo: {
+  width: "100%",
+  height: 220,
+  alignSelf: "center",
+  marginTop: 8,
+  marginBottom: 12,
+},
+mainContent: {
+  flex: 1,
+  width: "100%",
+  alignItems: "center",
+  justifyContent: "space-evenly",
+  paddingBottom: 12,
+},
   text1: {
     fontSize: RFPercentage(2.8),
     color: "#66CC00",
@@ -153,17 +150,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  bottomLink: {
-    flex: 1,
-    width: "100%",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    paddingBottom: 20,
-  },
+ 
+bottomLink: {
+  width: "100%",
+  alignItems: "center",
+  marginTop: 12,
+  paddingBottom: 20,
+},
+
 
   pressableText: {
     textDecorationLine: "underline",
     color: "#CDAB82",
     fontSize: RFPercentage(2),
   },
+  forgotPassword: {
+  alignSelf: "center",
+  marginTop: 2,
+  paddingVertical: 4,
+},
 });

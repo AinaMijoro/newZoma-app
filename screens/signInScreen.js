@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   StyleSheet,
@@ -9,22 +10,75 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 
+const API_URL = "http://10.0.2.2:3000";
+
 export default function SignInScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSignIn() {
-    // La connexion réelle sera ajoutée plus tard.
+  async function handleSignIn() {
     if (!email.trim() || !password) {
-      alert("Veuillez saisir votre adresse e-mail et votre mot de passe.");
+      Alert.alert(
+        "Champs manquants",
+        "Veuillez saisir votre adresse e-mail et votre mot de passe."
+      );
       return;
     }
 
-    alert("Les champs sont remplis. La connexion sera bientôt activée.");
+    try {
+      setLoading(true);
+
+      const response = await fetch(`${API_URL}/users/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert(
+          "Connexion impossible",
+          data.message || "Vérifiez votre adresse e-mail et votre mot de passe."
+        );
+        return;
+      }
+
+      Alert.alert("Bienvenue sur Zoma !", `Bonjour ${data.user.name} !`);
+
+      if (data.user.profile === "cherche") {
+        navigation.navigate("Home");
+      } else if (data.user.profile === "propose") {
+        navigation.navigate("Home");
+      } else {
+        Alert.alert(
+          "Choisissez votre profil",
+          "Votre compte n'a pas encore de profil."
+        );
+        navigation.navigate("ProfileChoice", {
+          userId: data.user.id,
+        });
+      }
+    } catch (error) {
+      Alert.alert(
+        "Erreur réseau",
+        "Impossible de contacter le serveur. Vérifiez que le backend fonctionne et réessayez."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -45,9 +99,7 @@ export default function SignInScreen({ navigation }) {
           />
 
           <Text style={styles.title}>Se connecter</Text>
-          <Text style={styles.subtitle}>
-            Bienvenue sur Zoma !
-          </Text>
+          <Text style={styles.subtitle}>Bienvenue sur Zoma !</Text>
 
           <TextInput
             style={styles.input}
@@ -73,25 +125,32 @@ export default function SignInScreen({ navigation }) {
           />
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, loading && styles.disabledButton]}
             onPress={handleSignIn}
             activeOpacity={0.8}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>Se connecter</Text>
+            {loading ? (
+              <ActivityIndicator color="#003300" />
+            ) : (
+              <Text style={styles.buttonText}>Se connecter</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => alert("La récupération du mot de passe sera ajoutée plus tard.")}
+            onPress={() =>
+              Alert.alert(
+                "Bientôt disponible",
+                "La récupération du mot de passe sera ajoutée plus tard."
+              )
+            }
             style={styles.linkButton}
           >
             <Text style={styles.linkText}>Mot de passe oublié ?</Text>
           </TouchableOpacity>
 
           <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>
-              Pas encore de compte ?
-            </Text>
-
+            <Text style={styles.signupText}>Pas encore de compte ?</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate("signup")}
             >
@@ -156,6 +215,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#CDAB82",
     borderRadius: 10,
     marginTop: 5,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   buttonText: {
     color: "#003300",

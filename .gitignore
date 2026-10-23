@@ -33,3 +33,11 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# IDE local settings
+.idea/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
