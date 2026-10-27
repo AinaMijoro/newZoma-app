@@ -57,20 +57,32 @@ export default function SignInScreen({ navigation }) {
       }
 
       Alert.alert("Bienvenue sur Zoma !", `Bonjour ${data.user.name} !`);
+      if (data.user.role === "admin") {
+  navigation.navigate("AdminActivities", {
+    token: data.token,
+  });
+  return;
+}
 
-      if (data.user.profile === "cherche") {
-        navigation.navigate("Home");
-      } else if (data.user.profile === "propose") {
-        navigation.navigate("Home");
-      } else {
-        Alert.alert(
-          "Choisissez votre profil",
-          "Votre compte n'a pas encore de profil."
-        );
-        navigation.navigate("ProfileChoice", {
-          userId: data.user.id,
-        });
-      }
+      
+if (
+  Array.isArray(data.user.profiles) &&
+  data.user.profiles.length > 0
+) {
+  if (data.user.profiles.includes("propose")) {
+    navigation.navigate("ProviderSetup", {
+      userId: data.user.id,
+      profiles: data.user.profiles,
+    });
+  } else {
+    navigation.navigate("SearchHome");
+  }
+} else {
+  navigation.navigate("ProfileChoice", {
+    userId: data.user.id,
+  });
+}
+
     } catch (error) {
       Alert.alert(
         "Erreur réseau",

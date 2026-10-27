@@ -4,7 +4,6 @@
     "slug": "newZoma",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -17,14 +16,11 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+    "android": {},
+    "extra": {
+      "eas": {
+        "projectId": "b995c3e5-df97-4e49-b840-97dd04b679d9"
       }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     }
   }
 }
