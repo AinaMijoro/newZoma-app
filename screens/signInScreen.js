@@ -58,30 +58,31 @@ export default function SignInScreen({ navigation }) {
 
       Alert.alert("Bienvenue sur Zoma !", `Bonjour ${data.user.name} !`);
       if (data.user.role === "admin") {
-  navigation.navigate("AdminActivities", {
-    token: data.token,
-  });
-  return;
-}
+        navigation.navigate("AdminActivities", { token: data.token });
+        return;
+      }
 
-      
-if (
-  Array.isArray(data.user.profiles) &&
-  data.user.profiles.length > 0
-) {
-  if (data.user.profiles.includes("propose")) {
-    navigation.navigate("ProviderSetup", {
-      userId: data.user.id,
-      profiles: data.user.profiles,
-    });
-  } else {
-    navigation.navigate("SearchHome");
-  }
-} else {
-  navigation.navigate("ProfileChoice", {
-    userId: data.user.id,
-  });
-}
+
+      if (
+        Array.isArray(data.user.profiles) &&
+        data.user.profiles.length > 0
+      ) {
+        if (data.user.profiles.includes("propose")) {
+          navigation.navigate("ProviderSetup", {
+            userId: data.user.id,
+            profiles: data.user.profiles,
+            token: data.token,
+          });
+        } else {
+          navigation.navigate("SearchHome", {
+  token: data.token,
+});
+        }
+      } else {
+        navigation.navigate("ProfileChoice", {
+          userId: data.user.id,
+        });
+      }
 
     } catch (error) {
       Alert.alert(

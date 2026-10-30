@@ -37,7 +37,8 @@ const categories = [
   },
 ];
 
-export default function SearchHomeScreen({ navigation }) {
+export default function SearchHomeScreen({ navigation, route }) {
+  const token = route.params?.token;
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>
@@ -65,9 +66,10 @@ export default function SearchHomeScreen({ navigation }) {
             key={category.title}
             style={styles.category}
             onPress={() =>
-              navigation.navigate("Providers", {
-                category: category.title,
-              })
+             navigation.navigate("Providers", {
+  category: category.title,
+  token,
+})
             }
           >
             <Text style={styles.categoryTitle}>{category.title}</Text>

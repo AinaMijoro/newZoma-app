@@ -9,15 +9,17 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useEffect } from "react";
 
 const API_URL = "http://10.0.2.2:3000";
 
 export default function AdminActivitiesScreen({ route }) {
   const token = route.params?.token;
+  console.log("ADMIN TOKEN PRESENT:", !!token);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
 
   const loadActivities = useCallback(async () => {
     if (!token) {
@@ -36,6 +38,7 @@ export default function AdminActivitiesScreen({ route }) {
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log("ADMIN RESPONSE STATUS:", response.status);
 
       const data = await response.json();
 
@@ -51,11 +54,9 @@ export default function AdminActivitiesScreen({ route }) {
     }
   }, [token]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadActivities();
-    }, [loadActivities])
-  );
+  useEffect(() => {
+    loadActivities();
+  }, [loadActivities]);
 
   const approveActivity = async (activityId) => {
     try {
@@ -88,7 +89,53 @@ export default function AdminActivitiesScreen({ route }) {
       setApprovingId(null);
     }
   };
+  const rejectActivity = (activityId) => {
+    Alert.alert(
+      "Refuser cette activité ?",
+      "Cette activité sera marquée comme refusée.",
+      [
+        {
+          text: "Annuler",
+          style: "cancel",
+        },
+        {
+          text: "Refuser",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setRejectingId(activityId);
 
+              const response = await fetch(
+                `${API_URL}/activities/${activityId}/reject`,
+                {
+                  method: "PATCH",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+
+              const data = await response.json();
+
+              if (!response.ok) {
+                throw new Error(data.message || "Impossible de refuser l'activité.");
+              }
+
+              setActivities((current) =>
+                current.filter((activity) => activity._id !== activityId)
+              );
+
+              Alert.alert("Succès", "Activité refusée.");
+            } catch (error) {
+              Alert.alert("Erreur", error.message);
+            } finally {
+              setRejectingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
   if (loading && activities.length === 0) {
     return (
       <View style={styles.center}>
@@ -132,6 +179,16 @@ export default function AdminActivitiesScreen({ route }) {
                   : "Approuver"}
               </Text>
             </Pressable>
+
+            <Pressable
+              style={styles.rejectButton}
+              disabled={approvingId === item._id || rejectingId === item._id}
+              onPress={() => rejectActivity(item._id)}
+            >
+              <Text style={styles.rejectButtonText}>
+                {rejectingId === item._id ? "Refus..." : "Refuser"}
+              </Text>
+            </Pressable>
           </View>
         )}
       />
@@ -143,43 +200,58 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#003300",
   },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#003300",
   },
   title: {
     fontSize: 22,
     fontWeight: "bold",
+    color: "#66CC00",
     marginBottom: 16,
+    textAlign: "center",
   },
   card: {
     padding: 16,
     marginBottom: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
     borderRadius: 10,
     gap: 6,
   },
   name: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#003300",
   },
   button: {
     marginTop: 8,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#176b45",
+    backgroundColor: "#CDAB82",
     alignItems: "center",
   },
+    rejectButton: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#CC3333",
+    alignItems: "center",
+  },
+  rejectButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
   buttonText: {
-    color: "#fff",
+    color: "#003300",
     fontWeight: "bold",
   },
   empty: {
     marginTop: 24,
     textAlign: "center",
-    color: "#555",
+    color: "#FFFFFF",
   },
 });

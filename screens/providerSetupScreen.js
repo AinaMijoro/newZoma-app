@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   StyleSheet,
@@ -44,7 +43,7 @@ function splitValues(value) {
 }
 
 export default function ProviderSetupScreen({ route, navigation }) {
-  const { userId, profiles = [] } = route.params || {};
+  const { userId, profiles = [], token } = route.params || {};
 
   const [activityName, setActivityName] = useState("");
   const [specialty, setSpecialty] = useState("");
@@ -90,10 +89,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
     return (
       <TouchableOpacity
         key={label}
-        style={[
-          styles.option,
-          selected && styles.optionSelected,
-        ]}
+        style={[styles.option, selected && styles.optionSelected]}
         onPress={onPress}
         disabled={loading}
         activeOpacity={0.8}
@@ -111,6 +107,22 @@ export default function ProviderSetupScreen({ route, navigation }) {
     );
   }
 
+  function openMyOffers() {
+    if (!userId) {
+      Alert.alert(
+        "Connexion nécessaire",
+        "L'identifiant utilisateur est introuvable. Reconnecte-toi puis réessaie."
+      );
+      return;
+    }
+
+    navigation.navigate("Offers", {
+      userId,
+      profiles,
+      token,
+    });
+  }
+
   async function saveActivity() {
     const finalSpecialty =
       specialty === "Autre service"
@@ -126,17 +138,26 @@ export default function ProviderSetupScreen({ route, navigation }) {
     }
 
     if (!activityName.trim()) {
-      Alert.alert("Information manquante", "Indique le nom de ton activité.");
+      Alert.alert(
+        "Information manquante",
+        "Indique le nom de ton activité."
+      );
       return;
     }
 
     if (!specialty || !finalSpecialty) {
-      Alert.alert("Information manquante", "Choisis une spécialité.");
+      Alert.alert(
+        "Information manquante",
+        "Choisis une spécialité."
+      );
       return;
     }
 
     if (selectedCountries.length === 0) {
-      Alert.alert("Information manquante", "Choisis un pays d'intervention.");
+      Alert.alert(
+        "Information manquante",
+        "Choisis un pays d'intervention."
+      );
       return;
     }
 
@@ -242,7 +263,12 @@ export default function ProviderSetupScreen({ route, navigation }) {
           : {}),
       },
     };
-console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
+
+    console.log(
+      "Données envoyées :",
+      JSON.stringify(activityData, null, 2)
+    );
+
     try {
       setLoading(true);
 
@@ -250,6 +276,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(activityData),
       });
@@ -257,13 +284,13 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
       const data = await response.json();
 
       if (!response.ok) {
-  console.log("Erreur activité :", response.status, data);
-  Alert.alert(
-    "Enregistrement impossible",
-    `${response.status} — ${data.message || "Erreur inconnue"}`
-  );
-  return;
-}
+        console.log("Erreur activité :", response.status, data);
+        Alert.alert(
+          "Enregistrement impossible",
+          `${response.status} — ${data.message || "Erreur inconnue"}`
+        );
+        return;
+      }
 
       Alert.alert(
         "Activité enregistrée",
@@ -273,7 +300,14 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
           {
             text: "Continuer",
             onPress: () => {
-              if (profiles.includes("cherche")) {
+              if (profiles.includes("propose")) {
+                navigation.replace("Offers", {
+                  userId,
+                  profiles,
+                  token,
+                  activityId: data.activity?._id,
+                });
+              } else if (profiles.includes("cherche")) {
                 navigation.replace("SearchHome");
               }
             },
@@ -281,6 +315,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
         ]
       );
     } catch (error) {
+      console.error("Erreur activité :", error);
       Alert.alert(
         "Erreur de connexion",
         "Impossible de joindre le serveur. Vérifie que le backend fonctionne."
@@ -384,9 +419,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
 
         {selectedCountries.includes("France") && (
           <View style={styles.fullWidth}>
-            <Text style={styles.label}>
-              Départements français
-            </Text>
+            <Text style={styles.label}>Départements français</Text>
 
             <TextInput
               style={styles.input}
@@ -397,9 +430,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
               editable={!loading}
             />
 
-            <Text style={styles.label}>
-              Villes en France
-            </Text>
+            <Text style={styles.label}>Villes en France</Text>
 
             <TextInput
               style={styles.input}
@@ -419,9 +450,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
 
         {selectedCountries.includes("Madagascar") && (
           <View style={styles.fullWidth}>
-            <Text style={styles.label}>
-              Villes à Madagascar
-            </Text>
+            <Text style={styles.label}>Villes à Madagascar</Text>
 
             <TextInput
               style={styles.input}
@@ -462,7 +491,9 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
 
         {!!specialty && (
           <View style={styles.fullWidth}>
-            <Text style={styles.label}>Conditions de livraison *</Text>
+            <Text style={styles.label}>
+              Conditions de livraison *
+            </Text>
 
             {DELIVERY_OPTIONS.map((item) =>
               renderOption(
@@ -474,9 +505,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
 
             {deliveryType === "free_over_minimum" && (
               <>
-                <Text style={styles.label}>
-                  Montant minimum *
-                </Text>
+                <Text style={styles.label}>Montant minimum *</Text>
 
                 <TextInput
                   style={styles.input}
@@ -492,9 +521,7 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
 
             {deliveryType === "flat_fee" && (
               <>
-                <Text style={styles.label}>
-                  Frais de livraison *
-                </Text>
+                <Text style={styles.label}>Frais de livraison *</Text>
 
                 <TextInput
                   style={styles.input}
@@ -531,6 +558,17 @@ console.log("Données envoyées :", JSON.stringify(activityData, null, 2));
               Enregistrer mon activité
             </Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.offersButton}
+          onPress={openMyOffers}
+          disabled={loading}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.offersButtonText}>
+            Accéder à mes offres
+          </Text>
         </TouchableOpacity>
 
         <Text style={styles.footer}>
@@ -646,6 +684,24 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   saveButtonText: {
+    color: "#003300",
+    fontSize: RFPercentage(2),
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  offersButton: {
+    width: "100%",
+    minHeight: 54,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#66CC00",
+    borderWidth: 2,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 15,
+    padding: 12,
+  },
+  offersButtonText: {
     color: "#003300",
     fontSize: RFPercentage(2),
     fontWeight: "bold",

@@ -11,9 +11,9 @@ import {
 import { useState } from "react";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { useEffect } from "react";
 export default function HomeScreen({ navigation }) {
-  console.log("ZOMA TEST VERSION 123");
+
   const [email, setEmail] = useState("");
 
  

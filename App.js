@@ -10,6 +10,10 @@ import SearchHomeScreen from "./screens/searchHomeScreen";
 import ProviderSetupScreen from "./screens/providerSetupScreen";
 import ProvidersScreen from "./screens/providersScreen";
 import AdminActivitiesScreen from "./screens/adminActivitiesScreen";
+import OffersScreen from "./screens/offersScreen";
+import ProviderDetailScreen from "./screens/providerDetailScreen";
+import ProductsScreen from "./screens/productsScreen";
+import CartScreen from "./screens/cartScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -59,10 +63,33 @@ export default function App() {
           options={{ title: "Activités" }}
         />
         <Stack.Screen
-  name="AdminActivities"
-  component={AdminActivitiesScreen}
-  options={{ title: "Administration des activités" }}
-/>
+          name="AdminActivities"
+          component={AdminActivitiesScreen}
+          options={{
+            title: "Administration des activités",
+            animation: "default",
+          }}
+        />
+        <Stack.Screen
+          name="Offers"
+          component={OffersScreen}
+          options={{ title: "Mes offres" }}
+        />
+        <Stack.Screen
+          name="ProviderDetail"
+          component={ProviderDetailScreen}
+          options={{ title: "Détail de l'activité" }}
+        />
+        <Stack.Screen
+          name="Products"
+          component={ProductsScreen}
+          options={{ title: "Nos offres" }}
+        />
+        <Stack.Screen
+          name="Cart"
+          component={CartScreen}
+          options={{ title: "Mon panier" }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

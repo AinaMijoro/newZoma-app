@@ -5,13 +5,14 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
+  TouchableOpacity,
   StyleSheet,
 } from "react-native";
 
 const API_URL = "http://10.0.2.2:3000";
 
-export default function ProvidersScreen({ route }) {
-  const { category = "" } = route.params || {};
+export default function ProvidersScreen({ route, navigation }) {
+  const { category = "", token } = route.params || {};
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +53,8 @@ export default function ProvidersScreen({ route }) {
               return specialty.includes("COLIS") || name.includes("COLIS");
             }
 
-            if (selectedCategory === "SERRURERIE") {
-              return specialty.includes("SERRURERIE") || name.includes("SERRURERIE");
+            if (selectedCategory === "SERASERA") {
+              return specialty.includes("SERASERA") || name.includes("SERASERA");
             }
 
             if (selectedCategory === "MAINS D’ŒUVRE") {
@@ -109,7 +110,16 @@ export default function ProvidersScreen({ route }) {
             </Text>
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.8}
+              onPress={() =>
+                navigation.navigate("ProviderDetail", {
+                  activity: item,
+                  token,
+                })
+              }
+            >
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.detail}>
                 Spécialité : {item.specialty || "Non précisée"}
@@ -120,7 +130,8 @@ export default function ProvidersScreen({ route }) {
               <Text style={styles.detail}>
                 Villes : {(item.frenchCities || []).join(", ") || "Non précisées"}
               </Text>
-            </View>
+              <Text style={styles.openText}>Voir le détail →</Text>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -158,10 +169,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 3,
   },
+  openText: {
+    color: "#18864B",
+    fontWeight: "bold",
+    marginTop: 12,
+  },
   message: {
     color: "white",
     textAlign: "center",
     marginTop: 20,
   },
 });
-
