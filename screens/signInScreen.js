@@ -16,12 +16,36 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 
-const API_URL = "http://10.0.2.2:3000";
+const API_URL =
+  Platform.OS === "web"
+    ? "http://localhost:3000"
+    : "http://10.0.2.2:3000";
 
 export default function SignInScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function enterSpace(space, user, token) {
+    const params = {
+      userId: user.id,
+      token,
+      profiles: user.profiles || [],
+      name: user.name || "",
+      merchantName: user.merchantName || "",
+      activeSpace: space,
+    };
+
+    if (space === "propose" && !user.merchantName) {
+      navigation.navigate("ProviderSetup", params);
+      return;
+    }
+
+    navigation.navigate(
+      space === "propose" ? "MerchantTabs" : "ProspectTabs",
+      params
+    );
+  }
 
   async function handleSignIn() {
     if (!email.trim() || !password) {
@@ -51,39 +75,69 @@ export default function SignInScreen({ navigation }) {
       if (!response.ok) {
         Alert.alert(
           "Connexion impossible",
-          data.message || "Vérifiez votre adresse e-mail et votre mot de passe."
+          data.message ||
+            "Vérifiez votre adresse e-mail et votre mot de passe."
         );
         return;
       }
 
-      Alert.alert("Bienvenue sur Zoma !", `Bonjour ${data.user.name} !`);
-      if (data.user.role === "admin") {
-        navigation.navigate("AdminActivities", { token: data.token });
+      const user = data.user;
+      const token = data.token;
+
+      if (user.role === "admin") {
+        navigation.navigate("AdminActivities", { token });
         return;
       }
 
+      const profiles = Array.isArray(user.profiles)
+        ? user.profiles
+        : [];
 
-      if (
-        Array.isArray(data.user.profiles) &&
-        data.user.profiles.length > 0
-      ) {
-        if (data.user.profiles.includes("propose")) {
-          navigation.navigate("ProviderSetup", {
-            userId: data.user.id,
-            profiles: data.user.profiles,
-            token: data.token,
-          });
-        } else {
-          navigation.navigate("SearchHome", {
-  token: data.token,
-});
-        }
-      } else {
+      if (profiles.length === 0) {
         navigation.navigate("ProfileChoice", {
-          userId: data.user.id,
+          userId: user.id,
+          token,
         });
+        return;
       }
 
+      if (
+        profiles.includes("cherche") &&
+        profiles.includes("propose")
+      ) {
+        Alert.alert(
+          "Bienvenue sur Zoma !",
+          `Bonjour ${user.name} ! Quel espace souhaites-tu utiliser ?`,
+          [
+            {
+              text: "Espace Prospect",
+              onPress: () => enterSpace("cherche", user, token),
+            },
+            {
+              text: "Espace Marchand",
+              onPress: () => enterSpace("propose", user, token),
+            },
+          ],
+          { cancelable: false }
+        );
+
+        return;
+      }
+
+      if (profiles.includes("propose")) {
+        enterSpace("propose", user, token);
+        return;
+      }
+
+      if (profiles.includes("cherche")) {
+        enterSpace("cherche", user, token);
+        return;
+      }
+
+      navigation.navigate("ProfileChoice", {
+        userId: user.id,
+        token,
+      });
     } catch (error) {
       Alert.alert(
         "Erreur réseau",

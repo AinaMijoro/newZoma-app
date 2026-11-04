@@ -3,17 +3,17 @@ import { useState } from "react";
 import {
   StyleSheet,
   Text,
+  Image,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const API_URL = "http://10.0.2.2:3000";
 
 export default function ProfileChoiceScreen({ route, navigation }) {
-  const { userId } = route.params;
+  const { userId, token } = route.params;
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState([]);
 
@@ -43,6 +43,7 @@ export default function ProfileChoiceScreen({ route, navigation }) {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ profiles }),
         }
@@ -58,14 +59,16 @@ export default function ProfileChoiceScreen({ route, navigation }) {
         return;
       }
 
-     if (profiles.includes("propose")) {
-  navigation.replace("ProviderSetup", {
-    userId,
-    profiles,
-  });
-} else {
-  navigation.replace("SearchHome");
-}
+      if (profiles.includes("propose")) {
+        navigation.replace("ProviderSetup", {
+          userId,
+          profiles,
+          token,
+          merchantName: data.user.merchantName || "",
+        });
+      } else {
+        navigation.replace("SearchHome");
+      }
     } catch (error) {
       Alert.alert(
         "Erreur de connexion",
@@ -78,8 +81,14 @@ export default function ProfileChoiceScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Image
+        source={require("../assets/logo_paysage.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+
       <Text style={styles.title}>
-        Que souhaites-tu faire sur Zoma ?
+        Que souhaites-tu faire sur ZOMA ?
       </Text>
 
       <Text style={styles.subtitle}>
@@ -93,6 +102,7 @@ export default function ProfileChoiceScreen({ route, navigation }) {
         ]}
         disabled={loading}
         onPress={() => toggleProfile("cherche")}
+        activeOpacity={0.8}
       >
         <Text style={styles.buttonText}>
           {profiles.includes("cherche") ? "✓ " : ""}
@@ -107,6 +117,7 @@ export default function ProfileChoiceScreen({ route, navigation }) {
         ]}
         disabled={loading}
         onPress={() => toggleProfile("propose")}
+        activeOpacity={0.8}
       >
         <Text style={styles.buttonText}>
           {profiles.includes("propose") ? "✓ " : ""}
@@ -118,6 +129,7 @@ export default function ProfileChoiceScreen({ route, navigation }) {
         style={[styles.button, styles.saveButton]}
         disabled={loading}
         onPress={saveProfiles}
+        activeOpacity={0.8}
       >
         {loading ? (
           <ActivityIndicator color="#003300" />
@@ -137,7 +149,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#003300",
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 25,
+  },
+  logo: {
+    width: "100%",
+    height: 130,
+    marginBottom: 25,
   },
   title: {
     color: "#66CC00",
@@ -150,12 +168,15 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     textAlign: "center",
+    lineHeight: 23,
     marginBottom: 30,
   },
   button: {
     width: "100%",
-    minHeight: 52,
+    minHeight: 54,
     backgroundColor: "#CDAB82",
+    borderWidth: 2,
+    borderColor: "#CDAB82",
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -164,13 +185,14 @@ const styles = StyleSheet.create({
   },
   selectedButton: {
     backgroundColor: "#66CC00",
+    borderColor: "#FFFFFF",
   },
   saveButton: {
-    marginTop: 10,
+    marginTop: 12,
   },
   buttonText: {
     color: "#003300",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "bold",
     textAlign: "center",
   },

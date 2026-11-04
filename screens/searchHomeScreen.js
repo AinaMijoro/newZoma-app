@@ -3,12 +3,14 @@ import React from "react";
 import {
   View,
   Text,
+  Image,
   TextInput,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const categories = [
   {
@@ -39,148 +41,147 @@ const categories = [
 
 export default function SearchHomeScreen({ navigation, route }) {
   const token = route.params?.token;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>
-        Z<Text style={styles.logoRed}>O</Text>MA
-      </Text>
-
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Que recherchez-vous ?"
-          placeholderTextColor="#999"
-        />
-        <Ionicons name="search-outline" size={22} color="#888" />
-      </View>
-
-      <Text style={styles.sectionTitle}>Les plus recherchés</Text>
-
+    <SafeAreaView style={styles.container}>
       <ScrollView
-        style={styles.categoryList}
-        contentContainerStyle={styles.categoryContent}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {categories.map((category, index) => (
-          <TouchableOpacity
-            key={category.title}
-            style={styles.category}
-            onPress={() =>
-             navigation.navigate("Providers", {
-  category: category.title,
-  token,
-})
-            }
-          >
-            <Text style={styles.categoryTitle}>{category.title}</Text>
-            <Text style={styles.categoryDescription}>
-              {category.description}
-            </Text>
-            {index === 0 && (
-              <Ionicons
-                name="hand-left-outline"
-                size={16}
-                color="#65D600"
-                style={styles.categoryAction}
-              />
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        <Image
+          source={require("../assets/logo_paysage.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
-      <View style={styles.bottomBar}>
-        <TouchableOpacity onPress={() => navigation.navigate("SearchHome")}>
-          <Ionicons name="home-outline" size={25} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="heart-outline" size={25} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="mail-outline" size={25} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="search-outline" size={25} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="cart-outline" size={25} color="white" />
-        </TouchableOpacity>
-      </View>
-    </View>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Que recherchez-vous ?"
+            placeholderTextColor="#888888"
+          />
+          <Ionicons
+            name="search-outline"
+            size={22}
+            color="#003300"
+          />
+        </View>
+
+        <Text style={styles.sectionTitle}>
+          Les plus recherchés
+        </Text>
+
+        <View style={styles.categoryList}>
+          {categories.map((category, index) => (
+            <TouchableOpacity
+              key={category.title}
+              style={styles.category}
+              activeOpacity={0.8}
+              onPress={() =>
+                navigation.navigate("Providers", {
+                  category: category.title,
+                  token,
+                })
+              }
+            >
+              <View style={styles.categoryText}>
+                <Text style={styles.categoryTitle}>
+                  {category.title}
+                </Text>
+
+                <Text style={styles.categoryDescription}>
+                  {category.description}
+                </Text>
+              </View>
+
+              <Ionicons
+                name={
+                  index === 0
+                    ? "hand-left-outline"
+                    : "chevron-forward"
+                }
+                size={20}
+                color="#003300"
+                style={styles.categoryIcon}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#004000",
-    paddingTop: 38,
+    backgroundColor: "#003300",
+  },
+  scrollContent: {
     paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 25,
   },
   logo: {
-    color: "white",
-    fontSize: 29,
-    fontWeight: "300",
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  logoRed: {
-    color: "#FF3333",
+    width: "100%",
+    height: 110,
+    marginBottom: 18,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "white",
-    paddingHorizontal: 10,
-    height: 36,
-    marginBottom: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 50,
+    marginBottom: 25,
   },
   searchInput: {
     flex: 1,
-    color: "#222",
-    fontSize: 12,
-    paddingVertical: 4,
+    color: "#003300",
+    fontSize: 15,
+    paddingVertical: 8,
   },
   sectionTitle: {
-    color: "#65D600",
-    fontSize: 16,
+    color: "#66CC00",
+    fontSize: 20,
+    fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 16,
   },
   categoryList: {
-    flex: 1,
-    backgroundColor: "white",
-  },
-  categoryContent: {
-    padding: 3,
+    gap: 12,
   },
   category: {
-    minHeight: 47,
-    paddingVertical: 5,
-    paddingHorizontal: 7,
-    borderBottomWidth: 2,
-    borderBottomColor: "#65D600",
-    position: "relative",
-  },
-  categoryTitle: {
-    color: "#111",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  categoryDescription: {
-    color: "#555",
-    fontSize: 9,
-    fontStyle: "italic",
-    paddingRight: 12,
-  },
-  categoryAction: {
-    position: "absolute",
-    right: 5,
-    bottom: 5,
-  },
-  bottomBar: {
-    height: 52,
+    minHeight: 75,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+  },
+  categoryText: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  categoryTitle: {
+    color: "#003300",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  categoryDescription: {
+    color: "#555555",
+    fontSize: 13,
+    fontStyle: "italic",
+    lineHeight: 19,
+  },
+  categoryIcon: {
+    marginLeft: 5,
   },
 });

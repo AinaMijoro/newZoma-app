@@ -67,6 +67,7 @@ export default function SignUpScreen({ navigation }) {
             text: "Continuer",
             onPress: () => navigation.navigate("ProfileChoice", {
               userId: data.user.id,
+              token: data.token,
             }),
           },
         ]

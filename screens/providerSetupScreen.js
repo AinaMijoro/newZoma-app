@@ -43,45 +43,156 @@ function splitValues(value) {
 }
 
 export default function ProviderSetupScreen({ route, navigation }) {
-  const { userId, profiles = [], token } = route.params || {};
+  const {
+    userId,
+    profiles = [],
+    token,
+    merchantName: initialMerchantName = "",
+    activity: editingActivity = null,
+  } = route.params || {};
 
-  const [activityName, setActivityName] = useState("");
-  const [specialty, setSpecialty] = useState("");
-  const [otherSpecialty, setOtherSpecialty] = useState("");
+  const isEditing = !!editingActivity;
 
-  const [country, setCountry] = useState("");
-  const [frenchDepartments, setFrenchDepartments] = useState("");
-  const [frenchCities, setFrenchCities] = useState("");
-  const [madagascarCities, setMadagascarCities] = useState("");
+  // Préparer les informations de l'activité à modifier
+  const initialSpecialty = editingActivity?.specialty || "";
+  const isKnownSpecialty = SPECIALTIES.includes(initialSpecialty);
 
-  const [parcelDirections, setParcelDirections] = useState([]);
+  const initialSelectedSpecialties = editingActivity
+    ? [isKnownSpecialty ? initialSpecialty : "Autre service"]
+    : [];
 
-  const [deliveryType, setDeliveryType] = useState("");
-  const [minimumAmount, setMinimumAmount] = useState("");
-  const [deliveryFee, setDeliveryFee] = useState("");
+  const initialOtherSpecialty =
+    editingActivity && !isKnownSpecialty ? initialSpecialty : "";
+
+  const initialActivitySettings = {};
+
+  if (editingActivity) {
+    const specialtyKey = isKnownSpecialty
+      ? initialSpecialty
+      : "Autre service";
+
+    const deliveriesByCountry = {};
+
+    (editingActivity.deliveries || []).forEach((delivery) => {
+      deliveriesByCountry[delivery.country] = {
+        type: delivery.type,
+        minimumAmount:
+          delivery.minimumAmount !== undefined
+            ? String(delivery.minimumAmount)
+            : "",
+        fee:
+          delivery.fee !== undefined ? String(delivery.fee) : "",
+      };
+    });
+
+    initialActivitySettings[specialtyKey] = {
+      countries: editingActivity.countries || [],
+      frenchDepartments: (
+        editingActivity.frenchDepartments || []
+      ).join(", "),
+      frenchCities: (editingActivity.frenchCities || []).join(", "),
+      madagascarCities: (
+        editingActivity.madagascarCities || []
+      ).join(", "),
+      parcelDirections: editingActivity.parcelDirections || [],
+      deliveries: deliveriesByCountry,
+    };
+  }
+
+  const [merchantName, setMerchantName] = useState(
+    editingActivity?.name || initialMerchantName
+  );
+
+  const [activitySettings, setActivitySettings] = useState(
+    initialActivitySettings
+  );
+
+  const [selectedSpecialties, setSelectedSpecialties] = useState(
+    initialSelectedSpecialties
+  );
+
+  const [otherSpecialty, setOtherSpecialty] = useState(
+    initialOtherSpecialty
+  );
 
   const [loading, setLoading] = useState(false);
 
-  const isParcelService =
-    specialty === "Envoi de colis France ↔ Madagascar";
-
-  const selectedCountries = isParcelService
-    ? ["France", "Madagascar"]
-    : country
-      ? [country]
-      : [];
-
-  function chooseSpecialty(value) {
-    setSpecialty(value);
-    setCountry("");
-    setParcelDirections([]);
-  }
-
-  function toggleDirection(value) {
-    setParcelDirections((current) =>
+  function toggleSpecialty(value) {
+    setSelectedSpecialties((current) =>
       current.includes(value)
         ? current.filter((item) => item !== value)
         : [...current, value]
+    );
+  }
+
+  function updateActivitySetting(specialty, field, value) {
+    setActivitySettings((current) => ({
+      ...current,
+      [specialty]: {
+        ...(current[specialty] || {}),
+        [field]: value,
+      },
+    }));
+  }
+
+  function getActivitySetting(specialty, field, defaultValue = "") {
+    return activitySettings[specialty]?.[field] ?? defaultValue;
+  }
+
+  function toggleActivityDirection(specialty, value) {
+    const currentDirections =
+      activitySettings[specialty]?.parcelDirections || [];
+
+    const updatedDirections = currentDirections.includes(value)
+      ? currentDirections.filter((item) => item !== value)
+      : [...currentDirections, value];
+
+    updateActivitySetting(
+      specialty,
+      "parcelDirections",
+      updatedDirections
+    );
+  }
+
+  function toggleActivityCountry(specialty, country) {
+    const currentCountries = getActivitySetting(
+      specialty,
+      "countries",
+      []
+    );
+
+    const updatedCountries = currentCountries.includes(country)
+      ? currentCountries.filter((item) => item !== country)
+      : [...currentCountries, country];
+
+    updateActivitySetting(specialty, "countries", updatedCountries);
+  }
+
+  function updateCountryDelivery(specialty, country, field, value) {
+    setActivitySettings((current) => ({
+      ...current,
+      [specialty]: {
+        ...(current[specialty] || {}),
+        deliveries: {
+          ...(current[specialty]?.deliveries || {}),
+          [country]: {
+            ...(current[specialty]?.deliveries?.[country] || {}),
+            [field]: value,
+          },
+        },
+      },
+    }));
+  }
+
+  function getCountryDelivery(
+    specialty,
+    country,
+    field,
+    defaultValue = ""
+  ) {
+    return (
+      activitySettings[specialty]?.deliveries?.[country]?.[field] ??
+      defaultValue
     );
   }
 
@@ -107,218 +218,341 @@ export default function ProviderSetupScreen({ route, navigation }) {
     );
   }
 
-  function openMyOffers() {
-    if (!userId) {
+  async function openMyOffers() {
+    if (!userId || !token) {
       Alert.alert(
         "Connexion nécessaire",
-        "L'identifiant utilisateur est introuvable. Reconnecte-toi puis réessaie."
+        "Reconnecte-toi puis réessaie."
       );
       return;
     }
-
-    navigation.navigate("Offers", {
-      userId,
-      profiles,
-      token,
-    });
-  }
-
-  async function saveActivity() {
-    const finalSpecialty =
-      specialty === "Autre service"
-        ? otherSpecialty.trim()
-        : specialty;
-
-    if (!userId) {
-      Alert.alert(
-        "Erreur",
-        "Identifiant utilisateur introuvable. Reconnecte-toi puis réessaie."
-      );
-      return;
-    }
-
-    if (!activityName.trim()) {
-      Alert.alert(
-        "Information manquante",
-        "Indique le nom de ton activité."
-      );
-      return;
-    }
-
-    if (!specialty || !finalSpecialty) {
-      Alert.alert(
-        "Information manquante",
-        "Choisis une spécialité."
-      );
-      return;
-    }
-
-    if (selectedCountries.length === 0) {
-      Alert.alert(
-        "Information manquante",
-        "Choisis un pays d'intervention."
-      );
-      return;
-    }
-
-    if (isParcelService && parcelDirections.length === 0) {
-      Alert.alert(
-        "Information manquante",
-        "Choisis au moins un sens d'envoi."
-      );
-      return;
-    }
-
-    if (!deliveryType) {
-      Alert.alert(
-        "Information manquante",
-        "Choisis une option de livraison."
-      );
-      return;
-    }
-
-    let parsedMinimum;
-    let parsedFee;
-
-    if (deliveryType === "free_over_minimum") {
-      parsedMinimum = Number(minimumAmount);
-
-      if (
-        minimumAmount.trim() === "" ||
-        !Number.isFinite(parsedMinimum) ||
-        parsedMinimum < 0
-      ) {
-        Alert.alert(
-          "Montant invalide",
-          "Indique un montant minimum valide."
-        );
-        return;
-      }
-    }
-
-    if (deliveryType === "flat_fee") {
-      parsedFee = Number(deliveryFee);
-
-      if (
-        deliveryFee.trim() === "" ||
-        !Number.isFinite(parsedFee) ||
-        parsedFee < 0
-      ) {
-        Alert.alert(
-          "Frais invalides",
-          "Indique des frais de livraison valides."
-        );
-        return;
-      }
-    }
-
-    const departments = splitValues(frenchDepartments);
-    const frenchCityList = splitValues(frenchCities);
-    const madagascarCityList = splitValues(madagascarCities);
-
-    if (
-      !selectedCountries.includes("France") &&
-      (departments.length > 0 || frenchCityList.length > 0)
-    ) {
-      Alert.alert(
-        "Vérifie les zones",
-        "Les départements et villes français nécessitent la sélection de la France."
-      );
-      return;
-    }
-
-    if (
-      !selectedCountries.includes("Madagascar") &&
-      madagascarCityList.length > 0
-    ) {
-      Alert.alert(
-        "Vérifie les zones",
-        "Les villes malgaches nécessitent la sélection de Madagascar."
-      );
-      return;
-    }
-
-    const activityData = {
-      userId,
-      name: activityName.trim(),
-      specialty: finalSpecialty,
-      countries: selectedCountries,
-      frenchDepartments: selectedCountries.includes("France")
-        ? departments
-        : [],
-      frenchCities: selectedCountries.includes("France")
-        ? frenchCityList
-        : [],
-      madagascarCities: selectedCountries.includes("Madagascar")
-        ? madagascarCityList
-        : [],
-      parcelDirections: isParcelService ? parcelDirections : [],
-      delivery: {
-        type: deliveryType,
-        ...(deliveryType === "free_over_minimum"
-          ? { minimumAmount: parsedMinimum }
-          : {}),
-        ...(deliveryType === "flat_fee"
-          ? { fee: parsedFee }
-          : {}),
-      },
-    };
-
-    console.log(
-      "Données envoyées :",
-      JSON.stringify(activityData, null, 2)
-    );
 
     try {
-      setLoading(true);
-
-      const response = await fetch(`${API_URL}/activities`, {
-        method: "POST",
+      const response = await fetch(`${API_URL}/activities/mine`, {
         headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(activityData),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.log("Erreur activité :", response.status, data);
+        throw new Error(
+          data.message || "Impossible de récupérer tes activités."
+        );
+      }
+
+      const activities = data.activities || [];
+
+      if (activities.length === 0) {
         Alert.alert(
-          "Enregistrement impossible",
-          `${response.status} — ${data.message || "Erreur inconnue"}`
+          "Aucune activité disponible",
+          "Tu n'as pas encore d'activité enregistrée."
         );
         return;
       }
 
+      navigation.navigate("Offers", {
+        userId,
+        profiles,
+        token,
+        activities,
+      });
+    } catch (error) {
+      Alert.alert("Erreur", error.message);
+    }
+  }
+
+  async function saveActivity() {
+    if (!userId || !token) {
       Alert.alert(
-        "Activité enregistrée",
-        data.message ||
-          "Ton activité a été enregistrée et attend la validation de l'équipe NewZoma.",
+        "Erreur",
+        "Ta session a expiré. Reconnecte-toi puis réessaie."
+      );
+      return;
+    }
+
+    if (selectedSpecialties.length === 0) {
+      Alert.alert(
+        "Information manquante",
+        "Choisis au moins une spécialité."
+      );
+      return;
+    }
+
+    if (!merchantName.trim()) {
+      Alert.alert(
+        "Information manquante",
+        "Indique ton nom commercial."
+      );
+      return;
+    }
+
+    if (
+      selectedSpecialties.includes("Autre service") &&
+      !otherSpecialty.trim()
+    ) {
+      Alert.alert(
+        "Information manquante",
+        "Décris le service que tu proposes."
+      );
+      return;
+    }
+
+    // Préparer les données de chaque activité
+    const activitiesToCreate = [];
+
+    for (const item of selectedSpecialties) {
+      const isParcel =
+        item === "Envoi de colis France ↔ Madagascar";
+
+      const finalSpecialty =
+        item === "Autre service" ? otherSpecialty.trim() : item;
+
+      const countries = isParcel
+        ? ["France", "Madagascar"]
+        : getActivitySetting(item, "countries", []);
+
+      const directions = getActivitySetting(
+        item,
+        "parcelDirections",
+        []
+      );
+
+      const deliveries = [];
+
+      for (const country of countries) {
+        const deliveryType = getCountryDelivery(
+          item,
+          country,
+          "type"
+        );
+
+        const minimumAmount = getCountryDelivery(
+          item,
+          country,
+          "minimumAmount"
+        );
+
+        const deliveryFee = getCountryDelivery(
+          item,
+          country,
+          "fee"
+        );
+
+        if (!deliveryType) {
+          Alert.alert(
+            "Livraison manquante",
+            `Choisis une condition de livraison pour ${country}, dans l'activité ${finalSpecialty}.`
+          );
+          return;
+        }
+
+        let parsedMinimum;
+        let parsedFee;
+
+        if (deliveryType === "free_over_minimum") {
+          parsedMinimum = Number(minimumAmount);
+
+          if (
+            String(minimumAmount).trim() === "" ||
+            !Number.isFinite(parsedMinimum) ||
+            parsedMinimum <= 0
+          ) {
+            Alert.alert(
+              "Montant invalide",
+              `Indique un montant minimum supérieur à zéro pour ${country}.`
+            );
+            return;
+          }
+        }
+
+        if (deliveryType === "flat_fee") {
+          parsedFee = Number(deliveryFee);
+
+          if (
+            String(deliveryFee).trim() === "" ||
+            !Number.isFinite(parsedFee) ||
+            parsedFee < 0
+          ) {
+            Alert.alert(
+              "Frais invalides",
+              `Indique des frais de livraison valides pour ${country}.`
+            );
+            return;
+          }
+        }
+
+        deliveries.push({
+          country,
+          currency: country === "France" ? "EUR" : "MGA",
+          type: deliveryType,
+          ...(deliveryType === "free_over_minimum"
+            ? { minimumAmount: parsedMinimum }
+            : {}),
+          ...(deliveryType === "flat_fee"
+            ? { fee: parsedFee }
+            : {}),
+        });
+      }
+
+      const departments = splitValues(
+        getActivitySetting(item, "frenchDepartments")
+      );
+
+      const frenchCities = splitValues(
+        getActivitySetting(item, "frenchCities")
+      );
+
+      const madagascarCities = splitValues(
+        getActivitySetting(item, "madagascarCities")
+      );
+
+      activitiesToCreate.push({
+        specialty: finalSpecialty,
+        countries,
+        frenchDepartments: countries.includes("France")
+          ? departments
+          : [],
+        frenchCities: countries.includes("France")
+          ? frenchCities
+          : [],
+        madagascarCities: countries.includes("Madagascar")
+          ? madagascarCities
+          : [],
+        parcelDirections: isParcel ? directions : [],
+        deliveries,
+      });
+    }
+
+    try {
+      setLoading(true);
+
+      // MODE MODIFICATION
+      if (isEditing) {
+        const response = await fetch(
+          `${API_URL}/activities/${editingActivity._id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(activitiesToCreate[0]),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Impossible de modifier cette activité."
+          );
+        }
+
+        Alert.alert(
+          "Modification enregistrée",
+          data.message || "Ton activité a été modifiée.",
+          [
+            {
+              text: "Continuer",
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+
+        return;
+      }
+
+      // MODE CRÉATION : enregistrer le nom commercial si nécessaire
+      if (!initialMerchantName) {
+        const merchantResponse = await fetch(
+          `${API_URL}/users/merchant-name`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              merchantName: merchantName.trim(),
+            }),
+          }
+        );
+
+        const merchantData = await merchantResponse.json();
+
+        if (!merchantResponse.ok) {
+          Alert.alert(
+            "Nom commercial non enregistré",
+            merchantData.message ||
+              "Impossible d'enregistrer ton nom commercial."
+          );
+          return;
+        }
+      }
+
+      // Créer une activité indépendante pour chaque spécialité
+      const createdActivityIds = [];
+
+      for (const activityData of activitiesToCreate) {
+        const response = await fetch(`${API_URL}/activities`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(activityData),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.log("Erreur activité :", response.status, data);
+
+          Alert.alert(
+            "Enregistrement interrompu",
+            `L'activité « ${activityData.specialty} » n'a pas pu être enregistrée. ${
+              createdActivityIds.length > 0
+                ? `${createdActivityIds.length} activité(s) précédente(s) ont déjà été enregistrées.`
+                : data.message || "Réessaie plus tard."
+            }`
+          );
+          return;
+        }
+
+        const activityId = data.activity?._id || data._id;
+
+        if (activityId) {
+          createdActivityIds.push(activityId);
+        }
+      }
+
+      Alert.alert(
+        "Activités enregistrées",
+        `${createdActivityIds.length} activité(s) ont été enregistrées et attendent la validation de l'équipe NewZoma.`,
         [
           {
             text: "Continuer",
             onPress: () => {
-              if (profiles.includes("propose")) {
-                navigation.replace("Offers", {
-                  userId,
-                  profiles,
-                  token,
-                  activityId: data.activity?._id,
-                });
-              } else if (profiles.includes("cherche")) {
-                navigation.replace("SearchHome");
-              }
+              navigation.replace("Offers", {
+                userId,
+                profiles,
+                token,
+                activityId: createdActivityIds[0],
+                activityIds: createdActivityIds,
+              });
             },
           },
         ]
       );
     } catch (error) {
-      console.error("Erreur activité :", error);
+      console.error("Erreur activités :", error);
+
       Alert.alert(
-        "Erreur de connexion",
-        "Impossible de joindre le serveur. Vérifie que le backend fonctionne."
+        "Erreur",
+        error.message ||
+          "Impossible de joindre le serveur. Vérifie que le backend fonctionne."
       );
     } finally {
       setLoading(false);
@@ -333,26 +567,38 @@ export default function ProviderSetupScreen({ route, navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <Image
-          source={require("../assets/logo.png")}
+          source={require("../assets/logo_paysage.png")}
           style={styles.logo}
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>Présente ton activité</Text>
-
-        <Text style={styles.subtitle}>
-          Complète les informations de ton activité.
+        <Text style={styles.title}>
+          {isEditing
+            ? "Modifier mon activité"
+            : "Présente ton activité"}
         </Text>
 
-        <Text style={styles.label}>Nom de ton activité *</Text>
+        <Text style={styles.subtitle}>
+          {isEditing
+            ? "Modifie les informations de ton activité."
+            : "Complète les informations de ton activité."}
+        </Text>
+
+        <View style={styles.scrollHint}>
+          <Text style={styles.scrollHintText}>
+            ↓ Fais défiler vers le bas pour compléter toute la page
+          </Text>
+        </View>
+
+        <Text style={styles.label}>Nom commercial *</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Ex. : Traiteur malgache"
+          placeholder="Ex. : Chez Aina"
           placeholderTextColor="#777777"
-          value={activityName}
-          onChangeText={setActivityName}
-          editable={!loading}
+          value={merchantName}
+          onChangeText={setMerchantName}
+          editable={!loading && !initialMerchantName && !isEditing}
         />
 
         <Text style={styles.label}>Ta spécialité *</Text>
@@ -360,17 +606,14 @@ export default function ProviderSetupScreen({ route, navigation }) {
         {SPECIALTIES.map((item) =>
           renderOption(
             item,
-            specialty === item,
-            () => chooseSpecialty(item)
+            selectedSpecialties.includes(item),
+            () => toggleSpecialty(item)
           )
         )}
 
-        {specialty === "Autre service" && (
+        {selectedSpecialties.includes("Autre service") && (
           <View style={styles.fullWidth}>
-            <Text style={styles.label}>
-              Décris le service que tu proposes *
-            </Text>
-
+            <Text style={styles.label}>Décris ton autre service *</Text>
             <TextInput
               style={styles.input}
               placeholder="Décris ta spécialité"
@@ -379,168 +622,251 @@ export default function ProviderSetupScreen({ route, navigation }) {
               onChangeText={setOtherSpecialty}
               editable={!loading}
             />
-
-            <Text style={styles.helper}>
-              Ce service pourra être examiné par l'équipe NewZoma.
-            </Text>
           </View>
         )}
 
-        {!!specialty && (
-          <View style={styles.fullWidth}>
-            <Text style={styles.label}>Pays d'intervention *</Text>
+        {selectedSpecialties.map((item) => {
+          const isParcel =
+            item === "Envoi de colis France ↔ Madagascar";
 
-            {isParcelService ? (
-              <View style={styles.notice}>
-                <Text style={styles.noticeText}>
-                  France et Madagascar
-                </Text>
-                <Text style={styles.helper}>
-                  Cette activité concerne les deux pays.
-                </Text>
-              </View>
-            ) : (
-              <>
-                {renderOption(
-                  "France",
-                  country === "France",
-                  () => setCountry("France")
-                )}
+          const selectedCountries = isParcel
+            ? ["France", "Madagascar"]
+            : getActivitySetting(item, "countries", []);
 
-                {renderOption(
-                  "Madagascar",
-                  country === "Madagascar",
-                  () => setCountry("Madagascar")
-                )}
-              </>
-            )}
-          </View>
-        )}
+          const countries = selectedCountries;
 
-        {selectedCountries.includes("France") && (
-          <View style={styles.fullWidth}>
-            <Text style={styles.label}>Départements français</Text>
+          const directions = getActivitySetting(
+            item,
+            "parcelDirections",
+            []
+          );
 
-            <TextInput
-              style={styles.input}
-              placeholder="Ex. : 75, 93, 94"
-              placeholderTextColor="#777777"
-              value={frenchDepartments}
-              onChangeText={setFrenchDepartments}
-              editable={!loading}
-            />
+          return (
+            <View key={item} style={styles.fullWidth}>
+              <Text style={styles.title}>
+                {item === "Autre service" && otherSpecialty.trim()
+                  ? otherSpecialty
+                  : item}
+              </Text>
 
-            <Text style={styles.label}>Villes en France</Text>
+              <Text style={styles.label}>
+                Pays d'intervention *
+              </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Ex. : Paris, Créteil, Saint-Denis"
-              placeholderTextColor="#777777"
-              value={frenchCities}
-              onChangeText={setFrenchCities}
-              editable={!loading}
-            />
+              {isParcel ? (
+                <View style={styles.notice}>
+                  <Text style={styles.noticeText}>
+                    France et Madagascar
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {renderOption(
+                    "France",
+                    selectedCountries.includes("France"),
+                    () => toggleActivityCountry(item, "France")
+                  )}
 
-            <Text style={styles.helper}>
-              Sépare les départements et les villes par des virgules.
-              Ces champs sont facultatifs.
-            </Text>
-          </View>
-        )}
+                  {renderOption(
+                    "Madagascar",
+                    selectedCountries.includes("Madagascar"),
+                    () => toggleActivityCountry(item, "Madagascar")
+                  )}
+                </>
+              )}
 
-        {selectedCountries.includes("Madagascar") && (
-          <View style={styles.fullWidth}>
-            <Text style={styles.label}>Villes à Madagascar</Text>
+              {countries.includes("France") && (
+                <>
+                  <Text style={styles.label}>
+                    Départements français
+                  </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Ex. : Antananarivo, Toamasina"
-              placeholderTextColor="#777777"
-              value={madagascarCities}
-              onChangeText={setMadagascarCities}
-              editable={!loading}
-            />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ex. : 75, 93, 94"
+                    placeholderTextColor="#777777"
+                    value={getActivitySetting(
+                      item,
+                      "frenchDepartments"
+                    )}
+                    onChangeText={(value) =>
+                      updateActivitySetting(
+                        item,
+                        "frenchDepartments",
+                        value
+                      )
+                    }
+                    editable={!loading}
+                  />
 
-            <Text style={styles.helper}>
-              Tu peux indiquer plusieurs villes, séparées par des virgules.
-            </Text>
-          </View>
-        )}
+                  <Text style={styles.label}>Villes en France</Text>
 
-        {isParcelService && (
-          <View style={styles.fullWidth}>
-            <Text style={styles.label}>Sens d'envoi *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ex. : Paris, Créteil, Saint-Denis"
+                    placeholderTextColor="#777777"
+                    value={getActivitySetting(item, "frenchCities")}
+                    onChangeText={(value) =>
+                      updateActivitySetting(
+                        item,
+                        "frenchCities",
+                        value
+                      )
+                    }
+                    editable={!loading}
+                  />
+                </>
+              )}
 
-            {renderOption(
-              "France vers Madagascar",
-              parcelDirections.includes("france_to_madagascar"),
-              () => toggleDirection("france_to_madagascar")
-            )}
+              {countries.includes("Madagascar") && (
+                <>
+                  <Text style={styles.label}>
+                    Villes à Madagascar
+                  </Text>
 
-            {renderOption(
-              "Madagascar vers France",
-              parcelDirections.includes("madagascar_to_france"),
-              () => toggleDirection("madagascar_to_france")
-            )}
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ex. : Antananarivo, Toamasina"
+                    placeholderTextColor="#777777"
+                    value={getActivitySetting(
+                      item,
+                      "madagascarCities"
+                    )}
+                    onChangeText={(value) =>
+                      updateActivitySetting(
+                        item,
+                        "madagascarCities",
+                        value
+                      )
+                    }
+                    editable={!loading}
+                  />
+                </>
+              )}
 
-            <Text style={styles.helper}>
-              Tu peux sélectionner un sens ou les deux.
-            </Text>
-          </View>
-        )}
+              {isParcel && (
+                <>
+                  <Text style={styles.label}>Sens d'envoi *</Text>
 
-        {!!specialty && (
-          <View style={styles.fullWidth}>
-            <Text style={styles.label}>
-              Conditions de livraison *
-            </Text>
+                  {renderOption(
+                    "France vers Madagascar",
+                    directions.includes("france_to_madagascar"),
+                    () =>
+                      toggleActivityDirection(
+                        item,
+                        "france_to_madagascar"
+                      )
+                  )}
 
-            {DELIVERY_OPTIONS.map((item) =>
-              renderOption(
-                item.label,
-                deliveryType === item.value,
-                () => setDeliveryType(item.value)
-              )
-            )}
+                  {renderOption(
+                    "Madagascar vers France",
+                    directions.includes("madagascar_to_france"),
+                    () =>
+                      toggleActivityDirection(
+                        item,
+                        "madagascar_to_france"
+                      )
+                  )}
+                </>
+              )}
 
-            {deliveryType === "free_over_minimum" && (
-              <>
-                <Text style={styles.label}>Montant minimum *</Text>
+              {countries.map((country) => {
+                const currency =
+                  country === "France" ? "EUR (€)" : "MGA (Ar)";
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ex. : 50"
-                  placeholderTextColor="#777777"
-                  value={minimumAmount}
-                  onChangeText={setMinimumAmount}
-                  keyboardType="decimal-pad"
-                  editable={!loading}
-                />
-              </>
-            )}
+                const deliveryValue = getCountryDelivery(
+                  item,
+                  country,
+                  "type"
+                );
 
-            {deliveryType === "flat_fee" && (
-              <>
-                <Text style={styles.label}>Frais de livraison *</Text>
+                return (
+                  <View key={country} style={styles.fullWidth}>
+                    <Text style={styles.label}>
+                      Livraison — {country} ({currency})
+                    </Text>
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ex. : 5"
-                  placeholderTextColor="#777777"
-                  value={deliveryFee}
-                  onChangeText={setDeliveryFee}
-                  keyboardType="decimal-pad"
-                  editable={!loading}
-                />
-              </>
-            )}
+                    {DELIVERY_OPTIONS.map((option) =>
+                      renderOption(
+                        option.label,
+                        deliveryValue === option.value,
+                        () =>
+                          updateCountryDelivery(
+                            item,
+                            country,
+                            "type",
+                            option.value
+                          )
+                      )
+                    )}
 
-            <Text style={styles.helper}>
-              Les montants sont enregistrés sous forme numérique.
-              La devise n'est pas encore précisée dans ce formulaire.
-            </Text>
-          </View>
-        )}
+                    {deliveryValue === "free_over_minimum" && (
+                      <>
+                        <Text style={styles.label}>
+                          Montant minimum ({currency})
+                        </Text>
+
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Indique le montant minimum"
+                          placeholderTextColor="#777777"
+                          value={String(
+                            getCountryDelivery(
+                              item,
+                              country,
+                              "minimumAmount"
+                            )
+                          )}
+                          onChangeText={(value) =>
+                            updateCountryDelivery(
+                              item,
+                              country,
+                              "minimumAmount",
+                              value
+                            )
+                          }
+                          keyboardType="decimal-pad"
+                          editable={!loading}
+                        />
+                      </>
+                    )}
+
+                    {deliveryValue === "flat_fee" && (
+                      <>
+                        <Text style={styles.label}>
+                          Frais de livraison ({currency})
+                        </Text>
+
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Indique les frais"
+                          placeholderTextColor="#777777"
+                          value={String(
+                            getCountryDelivery(
+                              item,
+                              country,
+                              "fee"
+                            )
+                          )}
+                          onChangeText={(value) =>
+                            updateCountryDelivery(
+                              item,
+                              country,
+                              "fee",
+                              value
+                            )
+                          }
+                          keyboardType="decimal-pad"
+                          editable={!loading}
+                        />
+                      </>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
 
         <TouchableOpacity
           style={[
@@ -555,24 +881,30 @@ export default function ProviderSetupScreen({ route, navigation }) {
             <ActivityIndicator color="#003300" />
           ) : (
             <Text style={styles.saveButtonText}>
-              Enregistrer mon activité
+              {isEditing
+                ? "Enregistrer les modifications"
+                : "Enregistrer mon activité"}
             </Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.offersButton}
-          onPress={openMyOffers}
-          disabled={loading}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.offersButtonText}>
-            Accéder à mes offres
-          </Text>
-        </TouchableOpacity>
+        {!isEditing && (
+          <TouchableOpacity
+            style={styles.offersButton}
+            onPress={openMyOffers}
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.offersButtonText}>
+              Accéder à mes offres
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={styles.footer}>
-          Ton activité sera en attente de validation par NewZoma.
+          {isEditing
+            ? "Après modification, ton activité approuvée devra être validée à nouveau."
+            : "Ton activité sera en attente de validation par NewZoma."}
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -712,5 +1044,16 @@ const styles = StyleSheet.create({
     fontSize: RFPercentage(1.7),
     textAlign: "center",
     marginTop: 15,
+  },
+  scrollHint: {
+    alignItems: "center",
+    marginBottom: 18,
+    paddingVertical: 8,
+  },
+  scrollHintText: {
+    color: "#269B72",
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });
