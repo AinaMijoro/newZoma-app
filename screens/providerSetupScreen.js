@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 const SPECIALTIES = [
   "Traiteurs",

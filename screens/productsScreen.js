@@ -11,8 +11,8 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
 
 export default function ProductsScreen({ route, navigation }) {
   const { activityId, activityName, token } = route.params || {};

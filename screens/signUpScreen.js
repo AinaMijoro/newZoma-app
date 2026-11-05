@@ -14,8 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
 
 export default function SignUpScreen({ navigation }) {
   const [name, setName] = useState("");
@@ -53,25 +53,17 @@ export default function SignUpScreen({ navigation }) {
       });
 
       const data = await response.json();
+      console.log("Réponse inscription :", data);
 
       if (!response.ok) {
         Alert.alert("Inscription impossible", data.message || "Une erreur est survenue.");
         return;
       }
 
-      Alert.alert(
-        "Compte créé",
-        "Ton compte est créé. Tu peux maintenant choisir ton profil.",
-        [
-          {
-            text: "Continuer",
-            onPress: () => navigation.navigate("ProfileChoice", {
-              userId: data.user.id,
-              token: data.token,
-            }),
-          },
-        ]
-      );
+      navigation.navigate("ProfileChoice", {
+        userId: data.user.id,
+        token: data.token,
+      });
     } catch (error) {
       Alert.alert(
         "Erreur de connexion",

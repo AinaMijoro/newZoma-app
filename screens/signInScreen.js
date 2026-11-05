@@ -15,11 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
+import API_URL from "../config/api";
 
-const API_URL =
-  Platform.OS === "web"
-    ? "http://localhost:3000"
-    : "http://10.0.2.2:3000";
 
 export default function SignInScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -76,13 +73,18 @@ export default function SignInScreen({ navigation }) {
         Alert.alert(
           "Connexion impossible",
           data.message ||
-            "Vérifiez votre adresse e-mail et votre mot de passe."
+          "Vérifiez votre adresse e-mail et votre mot de passe."
         );
         return;
       }
 
       const user = data.user;
       const token = data.token;
+      console.log("Profil utilisateur :", {
+        role: user.role,
+        profiles: user.profiles,
+        merchantName: user.merchantName,
+      });
 
       if (user.role === "admin") {
         navigation.navigate("AdminActivities", { token });
@@ -101,29 +103,26 @@ export default function SignInScreen({ navigation }) {
         return;
       }
 
-      if (
-        profiles.includes("cherche") &&
-        profiles.includes("propose")
-      ) {
-        Alert.alert(
-          "Bienvenue sur Zoma !",
-          `Bonjour ${user.name} ! Quel espace souhaites-tu utiliser ?`,
-          [
-            {
-              text: "Espace Prospect",
-              onPress: () => enterSpace("cherche", user, token),
-            },
-            {
-              text: "Espace Marchand",
-              onPress: () => enterSpace("propose", user, token),
-            },
-          ],
-          { cancelable: false }
-        );
+      if (profiles.includes("cherche") && profiles.includes("propose")) {
+        if (Platform.OS === "web") {
+          const choisirMarchand = window.confirm(
+            `Bonjour ${user.name} !\n\nOK : Espace Marchand\nAnnuler : Espace Prospect`
+          );
 
+          enterSpace(choisirMarchand ? "propose" : "cherche", user, token);
+        } else {
+          Alert.alert(
+            "Bienvenue sur Zoma !",
+            `Bonjour ${user.name} ! Quel espace souhaites-tu utiliser ?`,
+            [
+              { text: "Espace Prospect", onPress: () => enterSpace("cherche", user, token) },
+              { text: "Espace Marchand", onPress: () => enterSpace("propose", user, token) },
+            ],
+            { cancelable: false }
+          );
+        }
         return;
       }
-
       if (profiles.includes("propose")) {
         enterSpace("propose", user, token);
         return;

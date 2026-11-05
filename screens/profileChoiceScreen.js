@@ -9,8 +9,8 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
 
 export default function ProfileChoiceScreen({ route, navigation }) {
   const { userId, token } = route.params;
@@ -67,7 +67,18 @@ export default function ProfileChoiceScreen({ route, navigation }) {
           merchantName: data.user.merchantName || "",
         });
       } else {
-        navigation.replace("SearchHome");
+        navigation.replace("ProspectTabs", {
+          userId,
+          profiles,
+          token,
+          activeSpace: "cherche",
+          screen: "ProspectSearch",
+          params: {
+            userId,
+            profiles,
+            token,
+          },
+        });
       }
     } catch (error) {
       Alert.alert(

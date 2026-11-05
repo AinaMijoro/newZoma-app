@@ -16,8 +16,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 const STATUS = {
   pending: {

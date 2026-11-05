@@ -11,8 +11,9 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 export default function ProviderDetailScreen({ route, navigation }) {
   const { activity, token } = route.params;

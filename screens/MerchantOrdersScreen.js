@@ -11,13 +11,16 @@ import {
   Alert,
   RefreshControl,
   Modal,
+  Platform,
+
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 const STATUS = {
   pending: {
@@ -80,19 +83,19 @@ export default function MerchantOrdersScreen({ route }) {
 
     try {
       const response = await fetch(`${API_URL}/orders/mine`, {
-  method: "GET",
-  headers: {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/json",
-  },
-});
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
 
-const responseText = await response.text();
+      const responseText = await response.text();
 
-console.log("ORDERS STATUS :", response.status);
-console.log("ORDERS RESPONSE :", responseText);
+      console.log("ORDERS STATUS :", response.status);
+      console.log("ORDERS RESPONSE :", responseText);
 
-const data = JSON.parse(responseText);
+      const data = JSON.parse(responseText);
 
       if (!response.ok) {
         throw new Error(
@@ -122,60 +125,73 @@ const data = JSON.parse(responseText);
       completed: "terminer",
     };
 
-    Alert.alert(
-      "Confirmer l'action",
-      `Veux-tu vraiment ${labels[newStatus]} cette commande ?`,
-      [
-        {
-          text: "Annuler",
-          style: "cancel",
-        },
-        {
-          text: "Confirmer",
-          onPress: async () => {
-            setUpdating(true);
+    const message = `Veux-tu vraiment ${labels[newStatus]} cette commande ?`;
 
-            try {
-              const response = await fetch(
-                `${API_URL}/orders/${order._id}/status`,
-                {
-                  method: "PATCH",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    status: newStatus,
-                  }),
-                }
-              );
-
-              const data = await response.json();
-
-              if (!response.ok) {
-                throw new Error(
-                  data.message || "Impossible de modifier la commande."
-                );
-              }
-
-              Alert.alert(
-                "Succès",
-                "Le statut de la commande a été mis à jour."
-              );
-
-              setSelectedOrder(null);
-              await loadOrders();
-            } catch (error) {
-              Alert.alert("Erreur", error.message);
-            } finally {
-              setUpdating(false);
-            }
+    // Confirmation adaptée au Web et à Android
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(message);
+      if (!confirmed) return;
+    } else {
+      // Sur Android, on conserve la fenêtre de confirmation native
+      Alert.alert(
+        "Confirmer l'action",
+        message,
+        [
+          { text: "Annuler", style: "cancel" },
+          {
+            text: "Confirmer",
+            onPress: () => performUpdate(),
           },
-        },
-      ]
-    );
-  }
+        ]
+      );
+      return;
+    }
 
+    await performUpdate();
+
+    async function performUpdate() {
+      setUpdating(true);
+
+      try {
+        const response = await fetch(
+          `${API_URL}/orders/${order._id}/status`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ status: newStatus }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Impossible de modifier la commande."
+          );
+        }
+
+        if (Platform.OS === "web") {
+          window.alert("Le statut de la commande a été mis à jour.");
+        } else {
+          Alert.alert("Succès", "Le statut de la commande a été mis à jour.");
+        }
+
+        setSelectedOrder(null);
+        await loadOrders();
+      } catch (error) {
+        if (Platform.OS === "web") {
+          window.alert(error.message);
+        } else {
+          Alert.alert("Erreur", error.message);
+        }
+      } finally {
+        setUpdating(false);
+      }
+    }
+  }
   function renderOrder({ item }) {
     const status = STATUS[item.status] || {
       label: "Statut inconnu",

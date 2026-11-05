@@ -11,8 +11,9 @@ import {
   StyleSheet,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 const EMPTY_OFFER = {
   name: "",

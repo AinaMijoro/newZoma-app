@@ -11,8 +11,9 @@ import {
 } from "react-native";
 
 import { useCart } from "../context/CartContext";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 export default function CartScreen({ route, navigation }) {
   const { token } = route.params || {};

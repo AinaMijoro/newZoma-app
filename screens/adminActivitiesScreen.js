@@ -10,8 +10,9 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import API_URL from "../config/api";
 
-const API_URL = "http://10.0.2.2:3000";
+
 
 export default function AdminActivitiesScreen({ route }) {
   const token = route.params?.token;
