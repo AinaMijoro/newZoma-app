@@ -19,7 +19,7 @@ const categories = [
   },
   {
     title: "ENVOI COLIS",
-    description: "Monde vers Madagascar, Madagascar vers le Monde",
+    description: "France vers Madagascar, Madagascar vers la France",
   },
   {
     title: "SERASERA",

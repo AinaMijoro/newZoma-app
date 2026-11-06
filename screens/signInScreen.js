@@ -24,6 +24,7 @@ export default function SignInScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   function enterSpace(space, user, token) {
+    console.log("IDENTIFIANT TRANSMIS :", user.id);
     const params = {
       userId: user.id,
       token,

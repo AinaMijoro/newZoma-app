@@ -10,9 +10,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import API_URL from "../config/api";
-
 
 export default function ProductsScreen({ route, navigation }) {
   const { activityId, activityName, token } = route.params || {};
@@ -78,9 +79,7 @@ export default function ProductsScreen({ route, navigation }) {
     let active = true;
 
     async function loadFavorites() {
-      if (!token) {
-        return;
-      }
+      if (!token) return;
 
       try {
         const response = await fetch(`${API_URL}/favorites`, {
@@ -125,9 +124,7 @@ export default function ProductsScreen({ route, navigation }) {
       return;
     }
 
-    if (updatingFavorites.includes(productId)) {
-      return;
-    }
+    if (updatingFavorites.includes(productId)) return;
 
     const isFavorite = favorites.includes(productId);
 
@@ -183,29 +180,30 @@ export default function ProductsScreen({ route, navigation }) {
     });
   }
 
-function goToCart() {
-  const selectedProducts = products.filter(
-    (product) => (quantities[product._id] || 0) > 0
-  );
+  function goToCart() {
+    const selectedProducts = products.filter(
+      (product) => (quantities[product._id] || 0) > 0
+    );
 
-  if (selectedProducts.length === 0) {
-    Alert.alert("Panier", "Sélectionne au moins un produit.");
-    return;
+    if (selectedProducts.length === 0) {
+      Alert.alert("Panier", "Sélectionne au moins un produit.");
+      return;
+    }
+
+    selectedProducts.forEach((product) => {
+      addToCart(
+        product,
+        quantities[product._id],
+        activityId,
+        activityName
+      );
+    });
+
+    navigation.getParent()?.navigate("ProspectCart", {
+      token,
+    });
   }
 
-  selectedProducts.forEach((product) => {
-    addToCart(
-      product,
-      quantities[product._id],
-      activityId,
-      activityName
-    );
-  });
-
-  navigation.getParent()?.navigate("ProspectCart", {
-  token,
-});
-}
   const selectedCount = Object.values(quantities).reduce(
     (total, quantity) => total + quantity,
     0
@@ -263,6 +261,12 @@ function goToCart() {
           const isFavorite = favorites.includes(item._id);
           const isUpdating = updatingFavorites.includes(item._id);
 
+          const productImages = Array.isArray(item.images)
+            ? item.images.filter(
+                (image) => typeof image === "string" && image.trim() !== ""
+              )
+            : [];
+
           return (
             <View style={styles.card}>
               <View style={styles.productHeader}>
@@ -288,6 +292,23 @@ function goToCart() {
                   )}
                 </TouchableOpacity>
               </View>
+
+              {productImages.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.imagesContainer}
+                >
+                  {productImages.map((image, index) => (
+                    <Image
+                      key={`${item._id}-${index}`}
+                      source={{ uri: image }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  ))}
+                </ScrollView>
+              )}
 
               {!!item.description && (
                 <Text style={styles.description}>
@@ -412,6 +433,17 @@ const styles = StyleSheet.create({
   },
   favoriteInactive: {
     color: "#777777",
+  },
+  imagesContainer: {
+    marginTop: 12,
+    marginBottom: 5,
+  },
+  productImage: {
+    width: 220,
+    height: 170,
+    borderRadius: 10,
+    marginRight: 10,
+    backgroundColor: "#EEEEEE",
   },
   description: {
     color: "#555555",

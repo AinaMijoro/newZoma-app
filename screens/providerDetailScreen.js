@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -13,14 +12,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from "../config/api";
 
-
-
 export default function ProviderDetailScreen({ route, navigation }) {
   const { activity, token } = route.params;
 
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(true);
   const [updatingFavorite, setUpdatingFavorite] = useState(false);
+  const [contacting, setContacting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -116,6 +114,65 @@ export default function ProviderDetailScreen({ route, navigation }) {
       Alert.alert("Erreur", error.message);
     } finally {
       setUpdatingFavorite(false);
+    }
+  }
+
+  async function contactMerchant() {
+    if (!token) {
+      Alert.alert(
+        "Connexion requise",
+        "Connecte-toi pour envoyer un message."
+      );
+      return;
+    }
+
+    if (contacting) {
+      return;
+    }
+
+    // Identifiant de l'UTILISATEUR marchand (pas celui de l'activité)
+    const owner =
+      activity.userId ||
+      activity.merchantId ||
+      activity.ownerId ||
+      activity.owner;
+    const merchantId = typeof owner === "object" ? owner?._id : owner;
+
+    if (!merchantId) {
+      Alert.alert("Erreur", "Marchand introuvable pour cette activité.");
+      return;
+    }
+
+    try {
+      setContacting(true);
+
+      const response = await fetch(`${API_URL}/conversations`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ merchantId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Impossible d'ouvrir la conversation."
+        );
+      }
+
+      navigation.navigate("Chat", {
+        conversation: { ...data, name: activity.name },
+        token,
+        userId: data.prospectId,
+      });
+    } catch (error) {
+      Alert.alert("Messagerie", error.message);
+    } finally {
+      setContacting(false);
     }
   }
 
@@ -237,6 +294,21 @@ export default function ProviderDetailScreen({ route, navigation }) {
           >
             <Text style={styles.buttonText}>Voir les offres</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, styles.contactButton]}
+            activeOpacity={0.8}
+            onPress={contactMerchant}
+            disabled={contacting}
+          >
+            {contacting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={[styles.buttonText, styles.contactButtonText]}>
+                Contacter le marchand
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -335,5 +407,13 @@ const styles = StyleSheet.create({
     color: "#003300",
     fontSize: 17,
     fontWeight: "bold",
+  },
+  contactButton: {
+    backgroundColor: "#237A57",
+    borderColor: "#237A57",
+    marginTop: 12,
+  },
+  contactButtonText: {
+    color: "#FFFFFF",
   },
 });

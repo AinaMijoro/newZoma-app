@@ -12,15 +12,12 @@ import {
   RefreshControl,
   Modal,
   Platform,
-
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import API_URL from "../config/api";
-
-
 
 const STATUS = {
   pending: {
@@ -56,14 +53,15 @@ function formatPrice(price) {
   });
 }
 
-export default function MerchantOrdersScreen({ route }) {
-  const { token } = route.params || {};
+export default function MerchantOrdersScreen({ navigation, route }) {
+  const { token, userId } = route.params || {};
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [contacting, setContacting] = useState(false);
 
   const loadOrders = useCallback(async (isRefresh = false) => {
     if (!token) {
@@ -118,6 +116,69 @@ export default function MerchantOrdersScreen({ route }) {
     }, [loadOrders])
   );
 
+  async function contactClient(order) {
+    if (contacting) return;
+
+    if (!token || !userId) {
+      Alert.alert(
+        "Connexion nécessaire",
+        "Ta session est introuvable. Reconnecte-toi."
+      );
+      return;
+    }
+
+    try {
+      setContacting(true);
+
+      const response = await fetch(`${API_URL}/conversations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          orderId: order._id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Impossible d'ouvrir la conversation."
+        );
+      }
+
+      if (!data._id && !data.id) {
+        throw new Error(
+          "Le serveur n'a pas retourné de conversation valide."
+        );
+      }
+
+      const prospectName = order.prospectId?.name || "Client";
+
+      setSelectedOrder(null);
+
+      navigation.navigate("Chat", {
+        conversation: {
+          ...data,
+          name: prospectName,
+        },
+        token,
+        userId,
+      });
+    } catch (error) {
+      if (Platform.OS === "web") {
+        window.alert(error.message);
+      } else {
+        Alert.alert("Erreur", error.message);
+      }
+    } finally {
+      setContacting(false);
+    }
+  }
+
   async function updateOrderStatus(order, newStatus) {
     const labels = {
       accepted: "accepter",
@@ -127,12 +188,10 @@ export default function MerchantOrdersScreen({ route }) {
 
     const message = `Veux-tu vraiment ${labels[newStatus]} cette commande ?`;
 
-    // Confirmation adaptée au Web et à Android
     if (Platform.OS === "web") {
       const confirmed = window.confirm(message);
       if (!confirmed) return;
     } else {
-      // Sur Android, on conserve la fenêtre de confirmation native
       Alert.alert(
         "Confirmer l'action",
         message,
@@ -192,6 +251,7 @@ export default function MerchantOrdersScreen({ route }) {
       }
     }
   }
+
   function renderOrder({ item }) {
     const status = STATUS[item.status] || {
       label: "Statut inconnu",
@@ -390,9 +450,7 @@ export default function MerchantOrdersScreen({ route }) {
 
                       <Text style={styles.productSubtotal}>
                         Sous-total :{" "}
-                        {formatPrice(
-                          product.price * product.quantity
-                        )}{" "}
+                        {formatPrice(product.price * product.quantity)}{" "}
                         {product.currency}
                       </Text>
                     </View>
@@ -423,6 +481,29 @@ export default function MerchantOrdersScreen({ route }) {
             />
 
             <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.contactButton}
+                disabled={contacting}
+                onPress={() => contactClient(selectedOrder)}
+                activeOpacity={0.8}
+              >
+                {contacting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={21}
+                    color="#FFFFFF"
+                  />
+                )}
+
+                <Text style={styles.contactButtonText}>
+                  {contacting
+                    ? "Ouverture de la conversation..."
+                    : "Contacter le client"}
+                </Text>
+              </TouchableOpacity>
+
               {selectedOrder.status === "pending" && (
                 <>
                   <TouchableOpacity
@@ -799,6 +880,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#EEEEEE",
+  },
+  contactButton: {
+    backgroundColor: "#237A57",
+    borderRadius: 10,
+    minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    padding: 12,
+  },
+  contactButtonText: {
+    color: "#FFFFFF",
+    fontSize: RFPercentage(1.9),
+    fontWeight: "bold",
+    marginLeft: 8,
   },
   acceptButton: {
     backgroundColor: "#66CC00",

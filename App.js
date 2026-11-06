@@ -28,6 +28,8 @@ import MerchantOrdersScreen from "./screens/MerchantOrdersScreen";
 import ProspectOrdersScreen from "./screens/ProspectOrdersScreen";
 import MonCompteScreen from "./screens/monCompteScreen";
 import ProspectFavoritesScreen from "./screens/ProspectFavoritesScreen";
+import MessagesStack from "./navigation/MessagesStack";
+import ChatScreen from "./screens/ChatScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -77,79 +79,117 @@ function ProspectSearchStack({ route }) {
         component={ProductsScreen}
         options={{ title: "Nos offres" }}
       />
+       <SearchStack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={({ route }) => ({
+          title: route.params?.conversation?.name || "Discussion",
+        })}
+      />
     </SearchStack.Navigator>
   );
 }
 
 // Navigation Marchand
+
 function MerchantTabs({ route }) {
   const accountParams = route.params || {};
 
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#237A57",
-        tabBarInactiveTintColor: "#777777",
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
-      }}
-    >
-      <Tab.Screen
-        name="MerchantAccount"
-        component={MonCompteScreen}
-        initialParams={{
-          ...accountParams,
-          activeSpace: "propose",
-        }}
-        options={{
-          title: "Mon compte",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
+    <Stack.Navigator>
+      <Stack.Screen
+        name="MerchantTabsHome"
+        options={{ headerShown: false }}
+      >
+        {() => (
+          <Tab.Navigator
+            screenOptions={{
+              headerShown: false,
+              tabBarActiveTintColor: "#237A57",
+              tabBarInactiveTintColor: "#777777",
+              tabBarLabelStyle: {
+                fontSize: 11,
+                fontWeight: "600",
+              },
+            }}
+          >
+            <Tab.Screen
+              name="MerchantAccount"
+              component={MonCompteScreen}
+              initialParams={{
+                ...accountParams,
+                activeSpace: "propose",
+              }}
+              options={{
+                title: "Mon compte",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="person-circle-outline" size={size} color={color} />
+                ),
+              }}
+            />
 
-      <Tab.Screen
-        name="MerchantActivities"
-        component={ActivitiesScreen}
-        initialParams={accountParams}
-        options={{
-          title: "Activités",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="storefront-outline" size={size} color={color} />
-          ),
-        }}
-      />
+            <Tab.Screen
+              name="MerchantActivities"
+              component={ActivitiesScreen}
+              initialParams={accountParams}
+              options={{
+                title: "Activités",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="storefront-outline" size={size} color={color} />
+                ),
+              }}
+            />
 
-      <Tab.Screen
-        name="MerchantProducts"
-        component={OffersScreen}
-        initialParams={accountParams}
-        options={{
-          title: "Produits",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cube-outline" size={size} color={color} />
-          ),
-        }}
-      />
+            <Tab.Screen
+              name="MerchantProducts"
+              component={OffersScreen}
+              initialParams={accountParams}
+              options={{
+                title: "Produits",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="cube-outline" size={size} color={color} />
+                ),
+              }}
+            />
 
-      <Tab.Screen
-        name="MerchantOrders"
-        component={MerchantOrdersScreen}
-        initialParams={accountParams}
-        options={{
-          title: "Commandes",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" size={size} color={color} />
-          ),
-        }}
+            <Tab.Screen
+              name="MerchantOrders"
+              component={MerchantOrdersScreen}
+              initialParams={accountParams}
+              options={{
+                title: "Commandes",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="receipt-outline" size={size} color={color} />
+                ),
+              }}
+            />
+
+            <Tab.Screen
+              name="MerchantMessages"
+              component={MessagesStack}
+              initialParams={accountParams}
+              options={{
+                title: "Messages",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="chatbubbles-outline" size={size} color={color} />
+                ),
+              }}
+            />
+          </Tab.Navigator>
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={({ route }) => ({
+          title: route.params?.conversation?.name || "Discussion",
+        })}
       />
-    </Tab.Navigator>
+    </Stack.Navigator>
   );
 }
+
 
 // Navigation Prospect
 function ProspectTabs({ route }) {
@@ -229,6 +269,23 @@ function ProspectTabs({ route }) {
           ),
         }}
       />
+
+      <Tab.Screen
+        name="ProspectMessages"
+        component={MessagesStack}
+        initialParams={accountParams}
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="chatbubbles-outline"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
     </Tab.Navigator>
   );
 }
