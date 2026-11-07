@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
@@ -7,12 +6,10 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Alert,
+  Modal,
   ActivityIndicator,
 } from "react-native";
 import API_URL from "../config/api";
-
-
 
 export default function AdminActivitiesScreen({ route }) {
   const token = route.params?.token;
@@ -24,11 +21,42 @@ export default function AdminActivitiesScreen({ route }) {
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
 
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
+  const showDialog = (title, message, buttons = []) => {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  };
+
+  const closeDialog = () => {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  };
+
+  const handleDialogButton = (button) => {
+    closeDialog();
+
+    if (button.onPress) {
+      setTimeout(() => button.onPress(), 150);
+    }
+  };
+
   const loadActivities = useCallback(async () => {
     if (!token) {
-      Alert.alert(
+      showDialog(
         "Connexion requise",
-        "Reconnecte-toi avec le compte administrateur."
+        "Reconnecte-toi avec le compte administrateur.",
       );
       return;
     }
@@ -52,7 +80,7 @@ export default function AdminActivitiesScreen({ route }) {
 
       setActivities(data.activities || []);
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     } finally {
       setLoading(false);
     }
@@ -73,7 +101,7 @@ export default function AdminActivitiesScreen({ route }) {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -83,64 +111,65 @@ export default function AdminActivitiesScreen({ route }) {
       }
 
       setActivities((current) =>
-        current.filter((activity) => activity._id !== activityId)
+        current.filter((activity) => activity._id !== activityId),
       );
 
-      Alert.alert("Succès", "Activité approuvée.");
+      showDialog("Succès", "Activité approuvée.");
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     } finally {
       setApprovingId(null);
     }
   };
 
+  // Refuser une activité
+  const executeRejectActivity = async (activityId) => {
+    try {
+      setRejectingId(activityId);
+
+      const response = await fetch(
+        `${API_URL}/activities/${activityId}/reject`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Impossible de refuser l'activité.");
+      }
+
+      setActivities((current) =>
+        current.filter((activity) => activity._id !== activityId),
+      );
+
+      showDialog("Succès", "Activité refusée.");
+    } catch (error) {
+      showDialog("Erreur", error.message);
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
   const rejectActivity = (activityId) => {
-    Alert.alert(
+    showDialog(
       "Refuser cette activité ?",
       "Cette activité sera marquée comme refusée.",
       [
         {
           text: "Annuler",
-          style: "cancel",
+          style: "secondary",
         },
         {
           text: "Refuser",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setRejectingId(activityId);
-
-              const response = await fetch(
-                `${API_URL}/activities/${activityId}/reject`,
-                {
-                  method: "PATCH",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-
-              const data = await response.json();
-
-              if (!response.ok) {
-                throw new Error(
-                  data.message || "Impossible de refuser l'activité."
-                );
-              }
-
-              setActivities((current) =>
-                current.filter((activity) => activity._id !== activityId)
-              );
-
-              Alert.alert("Succès", "Activité refusée.");
-            } catch (error) {
-              Alert.alert("Erreur", error.message);
-            } finally {
-              setRejectingId(null);
-            }
-          },
+          style: "danger",
+          onPress: () => executeRejectActivity(activityId),
         },
-      ]
+      ],
     );
   };
 
@@ -210,9 +239,7 @@ export default function AdminActivitiesScreen({ route }) {
                 styles.button,
                 approvingId === item._id && styles.disabledButton,
               ]}
-              disabled={
-                approvingId === item._id || rejectingId === item._id
-              }
+              disabled={approvingId === item._id || rejectingId === item._id}
               onPress={() => approveActivity(item._id)}
             >
               <Text style={styles.buttonText}>
@@ -226,9 +253,7 @@ export default function AdminActivitiesScreen({ route }) {
                 (approvingId === item._id || rejectingId === item._id) &&
                   styles.disabledButton,
               ]}
-              disabled={
-                approvingId === item._id || rejectingId === item._id
-              }
+              disabled={approvingId === item._id || rejectingId === item._id}
               onPress={() => rejectActivity(item._id)}
             >
               <Text style={styles.rejectButtonText}>
@@ -238,6 +263,51 @@ export default function AdminActivitiesScreen({ route }) {
           </View>
         )}
       />
+
+      {/* Boîte de dialogue personnalisée */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={dialog.visible}
+        onRequestClose={closeDialog}
+      >
+        <Pressable style={styles.modalOverlay} onPress={closeDialog}>
+          <Pressable
+            style={styles.dialog}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogButtons}>
+              {dialog.buttons.map((button, index) => (
+                <Pressable
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "primary" && styles.dialogPrimaryButton,
+                    button.style === "secondary" &&
+                      styles.dialogSecondaryButton,
+                    button.style === "danger" && styles.dialogDangerButton,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary" &&
+                        styles.dialogSecondaryButtonText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -351,5 +421,67 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     lineHeight: 22,
+  },
+
+  // Styles de la boîte de dialogue
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  dialog: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 22,
+    elevation: 8,
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 19,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#333333",
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 22,
+  },
+  dialogButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  dialogButton: {
+    minWidth: 90,
+    minHeight: 42,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#003300",
+  },
+  dialogPrimaryButton: {
+    backgroundColor: "#003300",
+  },
+  dialogSecondaryButton: {
+    backgroundColor: "#EEEEEE",
+  },
+  dialogDangerButton: {
+    backgroundColor: "#CC3333",
+  },
+  dialogButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  dialogSecondaryButtonText: {
+    color: "#333333",
   },
 });

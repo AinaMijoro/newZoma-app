@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
 import {
@@ -9,10 +8,10 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
+  Modal,
+  Pressable,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import API_URL from "../config/api";
 
 export default function ProductsScreen({ route, navigation }) {
@@ -26,6 +25,27 @@ export default function ProductsScreen({ route, navigation }) {
   const [updatingFavorites, setUpdatingFavorites] = useState([]);
   const { addToCart } = useCart();
 
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+  });
+
+  function showDialog(title, message) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+    });
+  }
+
+  function closeDialog() {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -35,7 +55,7 @@ export default function ProductsScreen({ route, navigation }) {
         setError("");
 
         const response = await fetch(
-          `${API_URL}/products/activity/${activityId}`
+          `${API_URL}/products/activity/${activityId}`,
         );
 
         if (!response.ok) {
@@ -103,7 +123,7 @@ export default function ProductsScreen({ route, navigation }) {
         }
       } catch (e) {
         if (active) {
-          Alert.alert("Favoris", e.message);
+          showDialog("Favoris", e.message);
         }
       }
     }
@@ -117,9 +137,9 @@ export default function ProductsScreen({ route, navigation }) {
 
   async function toggleFavorite(productId) {
     if (!token) {
-      Alert.alert(
+      showDialog(
         "Connexion requise",
-        "Connecte-toi pour ajouter ce produit à tes favoris."
+        "Connecte-toi pour ajouter ce produit à tes favoris.",
       );
       return;
     }
@@ -138,7 +158,7 @@ export default function ProductsScreen({ route, navigation }) {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -150,20 +170,20 @@ export default function ProductsScreen({ route, navigation }) {
       setFavorites((previous) =>
         isFavorite
           ? previous.filter((id) => id !== productId)
-          : [...previous, productId]
+          : [...previous, productId],
       );
 
-      Alert.alert(
+      showDialog(
         "Favoris",
         isFavorite
           ? "Produit retiré des favoris."
-          : "Produit ajouté aux favoris."
+          : "Produit ajouté aux favoris.",
       );
     } catch (e) {
-      Alert.alert("Erreur", e.message);
+      showDialog("Erreur", e.message);
     } finally {
       setUpdatingFavorites((previous) =>
-        previous.filter((id) => id !== productId)
+        previous.filter((id) => id !== productId),
       );
     }
   }
@@ -182,21 +202,16 @@ export default function ProductsScreen({ route, navigation }) {
 
   function goToCart() {
     const selectedProducts = products.filter(
-      (product) => (quantities[product._id] || 0) > 0
+      (product) => (quantities[product._id] || 0) > 0,
     );
 
     if (selectedProducts.length === 0) {
-      Alert.alert("Panier", "Sélectionne au moins un produit.");
+      showDialog("Panier", "Sélectionne au moins un produit.");
       return;
     }
 
     selectedProducts.forEach((product) => {
-      addToCart(
-        product,
-        quantities[product._id],
-        activityId,
-        activityName
-      );
+      addToCart(product, quantities[product._id], activityId, activityName);
     });
 
     navigation.getParent()?.navigate("ProspectCart", {
@@ -206,7 +221,7 @@ export default function ProductsScreen({ route, navigation }) {
 
   const selectedCount = Object.values(quantities).reduce(
     (total, quantity) => total + quantity,
-    0
+    0,
   );
 
   const renderHeader = () => (
@@ -228,9 +243,7 @@ export default function ProductsScreen({ route, navigation }) {
       <View style={styles.center}>
         {renderHeader()}
         <ActivityIndicator size="large" color="#66CC00" />
-        <Text style={styles.loadingText}>
-          Chargement des produits...
-        </Text>
+        <Text style={styles.loadingText}>Chargement des produits...</Text>
       </View>
     );
   }
@@ -263,7 +276,7 @@ export default function ProductsScreen({ route, navigation }) {
 
           const productImages = Array.isArray(item.images)
             ? item.images.filter(
-                (image) => typeof image === "string" && image.trim() !== ""
+                (image) => typeof image === "string" && image.trim() !== "",
               )
             : [];
 
@@ -293,6 +306,12 @@ export default function ProductsScreen({ route, navigation }) {
                 </TouchableOpacity>
               </View>
 
+              {!!(item.specialty || item.activityId?.specialty) && (
+                <Text style={styles.productCategory}>
+                  Catégorie : {item.specialty || item.activityId?.specialty}
+                </Text>
+              )}
+
               {productImages.length > 0 && (
                 <ScrollView
                   horizontal
@@ -311,9 +330,7 @@ export default function ProductsScreen({ route, navigation }) {
               )}
 
               {!!item.description && (
-                <Text style={styles.description}>
-                  {item.description}
-                </Text>
+                <Text style={styles.description}>{item.description}</Text>
               )}
 
               <Text style={styles.price}>
@@ -358,6 +375,32 @@ export default function ProductsScreen({ route, navigation }) {
           ) : null
         }
       />
+
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <Pressable style={styles.modalOverlay} onPress={closeDialog}>
+          <Pressable
+            style={styles.dialogBox}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <TouchableOpacity
+              style={styles.dialogButton}
+              onPress={closeDialog}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dialogButtonText}>OK</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -419,6 +462,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "bold",
     color: "#003300",
+  },
+  productCategory: {
+    color: "#666666",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 4,
+    marginBottom: 4,
   },
   favoriteButton: {
     width: 42,
@@ -506,5 +556,47 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 15,
     lineHeight: 22,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  dialogBox: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 22,
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 19,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#444444",
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  dialogButton: {
+    backgroundColor: "#003300",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+  dialogButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "bold",
   },
 });

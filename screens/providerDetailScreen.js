@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import API_URL from "../config/api";
@@ -19,6 +20,39 @@ export default function ProviderDetailScreen({ route, navigation }) {
   const [favoriteLoading, setFavoriteLoading] = useState(true);
   const [updatingFavorite, setUpdatingFavorite] = useState(false);
   const [contacting, setContacting] = useState(false);
+
+  // Fenêtre de dialogue personnalisée
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
+  function showDialog(title, message, buttons = []) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons:
+        buttons.length > 0 ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  }
+
+  function closeDialog() {
+    setDialog((current) => ({
+      ...current,
+      visible: false,
+    }));
+  }
+
+  function handleDialogButton(button) {
+    closeDialog();
+
+    if (button.onPress) {
+      button.onPress();
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -38,7 +72,7 @@ export default function ProviderDetailScreen({ route, navigation }) {
         const data = await response.json();
 
         const favoriteExists = (data.activities || []).some(
-          (favorite) => favorite.activityId?._id === activity._id
+          (favorite) => favorite.activityId?._id === activity._id,
         );
 
         if (active) {
@@ -46,7 +80,7 @@ export default function ProviderDetailScreen({ route, navigation }) {
         }
       } catch (error) {
         if (active) {
-          Alert.alert("Favoris", error.message);
+          showDialog("Favoris", error.message);
         }
       } finally {
         if (active) {
@@ -68,9 +102,9 @@ export default function ProviderDetailScreen({ route, navigation }) {
 
   async function toggleFavorite() {
     if (!token) {
-      Alert.alert(
+      showDialog(
         "Connexion requise",
-        "Connecte-toi pour ajouter cette activité à tes favoris."
+        "Connecte-toi pour ajouter cette activité à tes favoris.",
       );
       return;
     }
@@ -91,27 +125,25 @@ export default function ProviderDetailScreen({ route, navigation }) {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Impossible de modifier le favori."
-        );
+        throw new Error(data.message || "Impossible de modifier le favori.");
       }
 
       setIsFavorite(!isFavorite);
 
-      Alert.alert(
+      showDialog(
         "Favoris",
         isFavorite
           ? "Marchand retiré des favoris."
-          : "Marchand ajouté aux favoris."
+          : "Marchand ajouté aux favoris.",
       );
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     } finally {
       setUpdatingFavorite(false);
     }
@@ -119,10 +151,7 @@ export default function ProviderDetailScreen({ route, navigation }) {
 
   async function contactMerchant() {
     if (!token) {
-      Alert.alert(
-        "Connexion requise",
-        "Connecte-toi pour envoyer un message."
-      );
+      showDialog("Connexion requise", "Connecte-toi pour envoyer un message.");
       return;
     }
 
@@ -130,16 +159,17 @@ export default function ProviderDetailScreen({ route, navigation }) {
       return;
     }
 
-    // Identifiant de l'UTILISATEUR marchand (pas celui de l'activité)
+    // Identifiant de l'utilisateur marchand
     const owner =
       activity.userId ||
       activity.merchantId ||
       activity.ownerId ||
       activity.owner;
+
     const merchantId = typeof owner === "object" ? owner?._id : owner;
 
     if (!merchantId) {
-      Alert.alert("Erreur", "Marchand introuvable pour cette activité.");
+      showDialog("Erreur", "Marchand introuvable pour cette activité.");
       return;
     }
 
@@ -159,18 +189,26 @@ export default function ProviderDetailScreen({ route, navigation }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Impossible d'ouvrir la conversation."
-        );
+        throw new Error(data.message || "Impossible d'ouvrir la conversation.");
       }
 
-      navigation.navigate("Chat", {
-        conversation: { ...data, name: activity.name },
-        token,
-        userId: data.prospectId,
+      // Ouvrir le Chat dans l'onglet Messages de Prospect
+      const prospectTabsNavigation = navigation.getParent();
+
+      if (!prospectTabsNavigation) {
+        throw new Error("Navigation vers les messages impossible.");
+      }
+
+      prospectTabsNavigation.navigate("ProspectMessages", {
+        screen: "Chat",
+        params: {
+          conversation: { ...data, name: activity.name },
+          token,
+          userId: data.prospectId,
+        },
       });
     } catch (error) {
-      Alert.alert("Messagerie", error.message);
+      showDialog("Messagerie", error.message);
     } finally {
       setContacting(false);
     }
@@ -178,8 +216,7 @@ export default function ProviderDetailScreen({ route, navigation }) {
 
   const deliveryLabels = {
     free: "Livraison gratuite",
-    free_over_minimum:
-      "Livraison gratuite à partir d'un minimum d'achat",
+    free_over_minimum: "Livraison gratuite à partir d'un minimum d'achat",
     flat_fee: "Livraison avec frais fixes",
     none: "Aucune livraison proposée",
   };
@@ -201,9 +238,8 @@ export default function ProviderDetailScreen({ route, navigation }) {
             <View style={styles.headerRow}>
               <View style={styles.headerText}>
                 <Text style={styles.name}>{activity.name}</Text>
-                <Text style={styles.specialty}>
-                  {activity.specialty}
-                </Text>
+
+                <Text style={styles.specialty}>{activity.specialty}</Text>
               </View>
 
               <TouchableOpacity
@@ -225,15 +261,15 @@ export default function ProviderDetailScreen({ route, navigation }) {
 
           <View style={styles.infoCard}>
             <Text style={styles.sectionTitle}>Pays desservis</Text>
+
             <Text style={styles.info}>
               {activity.countries?.join(", ") || "Non renseigné"}
             </Text>
 
             {activity.frenchCities?.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>
-                  Villes en France
-                </Text>
+                <Text style={styles.sectionTitle}>Villes en France</Text>
+
                 <Text style={styles.info}>
                   {activity.frenchCities.join(", ")}
                 </Text>
@@ -242,9 +278,8 @@ export default function ProviderDetailScreen({ route, navigation }) {
 
             {activity.frenchDepartments?.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>
-                  Départements en France
-                </Text>
+                <Text style={styles.sectionTitle}>Départements en France</Text>
+
                 <Text style={styles.info}>
                   {activity.frenchDepartments.join(", ")}
                 </Text>
@@ -253,9 +288,8 @@ export default function ProviderDetailScreen({ route, navigation }) {
 
             {activity.madagascarCities?.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>
-                  Villes à Madagascar
-                </Text>
+                <Text style={styles.sectionTitle}>Villes à Madagascar</Text>
+
                 <Text style={styles.info}>
                   {activity.madagascarCities.join(", ")}
                 </Text>
@@ -263,9 +297,9 @@ export default function ProviderDetailScreen({ route, navigation }) {
             )}
 
             <Text style={styles.sectionTitle}>Livraison</Text>
+
             <Text style={styles.info}>
-              {deliveryLabels[activity.delivery?.type] ||
-                "Non renseignée"}
+              {deliveryLabels[activity.delivery?.type] || "Non renseignée"}
             </Text>
 
             {activity.delivery?.minimumAmount != null && (
@@ -311,6 +345,48 @@ export default function ProviderDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Fenêtre de dialogue personnalisée */}
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dialogBox}>
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogButtons}>
+              {dialog.buttons.map((button, index) => (
+                <Pressable
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "secondary"
+                      ? styles.dialogSecondary
+                      : styles.dialogPrimary,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary"
+                        ? styles.dialogSecondaryText
+                        : styles.dialogPrimaryText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -415,5 +491,70 @@ const styles = StyleSheet.create({
   },
   contactButtonText: {
     color: "#FFFFFF",
+  },
+
+  // Styles de la fenêtre personnalisée
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  dialogBox: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+    padding: 22,
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 21,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#444444",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 23,
+    marginBottom: 22,
+  },
+  dialogButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 10,
+  },
+  dialogButton: {
+    flexGrow: 1,
+    flexBasis: "45%",
+    minHeight: 46,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  dialogPrimary: {
+    backgroundColor: "#CDAB82",
+  },
+  dialogSecondary: {
+    backgroundColor: "#E8E8E8",
+  },
+  dialogButtonText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  dialogPrimaryText: {
+    color: "#003300",
+  },
+  dialogSecondaryText: {
+    color: "#333333",
   },
 });

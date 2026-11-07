@@ -7,17 +7,15 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import API_URL from "../config/api";
-
-
 
 const STATUS = {
   pending: {
@@ -61,62 +59,87 @@ export default function ProspectOrdersScreen({ route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const loadOrders = useCallback(async (isRefresh = false) => {
-    if (!token) {
-      setLoading(false);
-      Alert.alert(
-        "Connexion nécessaire",
-        "Reconnecte-toi pour consulter tes commandes."
-      );
-      return;
-    }
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+  });
 
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  function showDialog(title, message) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+    });
+  }
 
-    try {
-      const response = await fetch(`${API_URL}/orders/my-orders`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
+  function closeDialog() {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  }
 
-      const responseText = await response.text();
-      console.log("PROSPECT ORDERS STATUS :", response.status);
-      console.log("PROSPECT ORDERS RESPONSE :", responseText);
+  const loadOrders = useCallback(
+    async (isRefresh = false) => {
+      if (!token) {
+        setLoading(false);
+        showDialog(
+          "Connexion nécessaire",
+          "Reconnecte-toi pour consulter tes commandes.",
+        );
+        return;
+      }
 
-      let data;
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
       try {
-        data = JSON.parse(responseText);
-      } catch {
-        throw new Error("Réponse invalide du serveur.");
-      }
+        const response = await fetch(`${API_URL}/orders/my-orders`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Impossible de récupérer tes commandes."
-        );
-      }
+        const responseText = await response.text();
 
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (error) {
-      Alert.alert("Erreur", error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [token]);
+        console.log("PROSPECT ORDERS STATUS :", response.status);
+        console.log("PROSPECT ORDERS RESPONSE :", responseText);
+
+        let data;
+
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error("Réponse invalide du serveur.");
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Impossible de récupérer tes commandes.",
+          );
+        }
+
+        setOrders(Array.isArray(data) ? data : []);
+      } catch (error) {
+        showDialog("Erreur", error.message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [token],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadOrders();
-    }, [loadOrders])
+    }, [loadOrders]),
   );
 
   function renderOrder({ item }) {
@@ -129,18 +152,14 @@ export default function ProspectOrdersScreen({ route }) {
 
     const totalProducts = (item.products || []).reduce(
       (total, product) => total + Number(product.quantity || 0),
-      0
+      0,
     );
 
     return (
       <View style={styles.orderCard}>
         <View style={styles.cardHeader}>
           <View style={styles.orderIcon}>
-            <Ionicons
-              name="receipt-outline"
-              size={25}
-              color="#003300"
-            />
+            <Ionicons name="receipt-outline" size={25} color="#003300" />
           </View>
 
           <View style={styles.cardTitleContainer}>
@@ -155,16 +174,9 @@ export default function ProspectOrdersScreen({ route }) {
         </View>
 
         <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: status.background },
-          ]}
+          style={[styles.statusBadge, { backgroundColor: status.background }]}
         >
-          <Ionicons
-            name={status.icon}
-            size={17}
-            color={status.color}
-          />
+          <Ionicons name={status.icon} size={17} color={status.color} />
 
           <Text style={[styles.statusText, { color: status.color }]}>
             {status.label}
@@ -179,9 +191,7 @@ export default function ProspectOrdersScreen({ route }) {
         </Text>
 
         <Text style={styles.detailLabel}>Produits commandés</Text>
-        <Text style={styles.detailValue}>
-          {totalProducts} article(s)
-        </Text>
+        <Text style={styles.detailValue}>{totalProducts} article(s)</Text>
 
         <Text style={styles.detailLabel}>Date de commande</Text>
         <Text style={styles.detailValue}>
@@ -231,18 +241,10 @@ export default function ProspectOrdersScreen({ route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Détail de ma commande
-              </Text>
+              <Text style={styles.modalTitle}>Détail de ma commande</Text>
 
-              <TouchableOpacity
-                onPress={() => setSelectedOrder(null)}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={29}
-                  color="#003300"
-                />
+              <TouchableOpacity onPress={() => setSelectedOrder(null)}>
+                <Ionicons name="close-circle" size={29} color="#003300" />
               </TouchableOpacity>
             </View>
 
@@ -272,12 +274,7 @@ export default function ProspectOrdersScreen({ route }) {
                       color={status.color}
                     />
 
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: status.color },
-                      ]}
-                    >
+                    <Text style={[styles.statusText, { color: status.color }]}>
                       {status.label}
                     </Text>
                   </View>
@@ -297,18 +294,14 @@ export default function ProspectOrdersScreen({ route }) {
                     {item.activityId?.name || "Activité non renseignée"}
                   </Text>
 
-                  <Text style={styles.modalLabel}>
-                    Produits commandés
-                  </Text>
+                  <Text style={styles.modalLabel}>Produits commandés</Text>
 
                   {(item.products || []).map((product, index) => (
                     <View
                       key={`${product.productId || index}`}
                       style={styles.productLine}
                     >
-                      <Text style={styles.productName}>
-                        {product.name}
-                      </Text>
+                      <Text style={styles.productName}>{product.name}</Text>
 
                       <Text style={styles.productDescription}>
                         {product.quantity} × {formatPrice(product.price)}{" "}
@@ -317,30 +310,21 @@ export default function ProspectOrdersScreen({ route }) {
 
                       <Text style={styles.productSubtotal}>
                         Sous-total :{" "}
-                        {formatPrice(
-                          product.price * product.quantity
-                        )}{" "}
+                        {formatPrice(product.price * product.quantity)}{" "}
                         {product.currency}
                       </Text>
                     </View>
                   ))}
 
-                  <Text style={styles.modalLabel}>
-                    Total de ma commande
-                  </Text>
+                  <Text style={styles.modalLabel}>Total de ma commande</Text>
 
                   {Object.entries(totals).map(([currency, total]) => (
-                    <Text
-                      key={currency}
-                      style={styles.totalValue}
-                    >
+                    <Text key={currency} style={styles.totalValue}>
                       {formatPrice(total)} {currency}
                     </Text>
                   ))}
 
-                  <Text style={styles.modalLabel}>
-                    Date de commande
-                  </Text>
+                  <Text style={styles.modalLabel}>Date de commande</Text>
 
                   <Text style={styles.modalValue}>
                     {item.createdAt
@@ -403,11 +387,7 @@ export default function ProspectOrdersScreen({ route }) {
         ListEmptyComponent={
           loading ? null : (
             <View style={styles.emptyContainer}>
-              <Ionicons
-                name="receipt-outline"
-                size={55}
-                color="#CDAB82"
-              />
+              <Ionicons name="receipt-outline" size={55} color="#CDAB82" />
 
               <Text style={styles.emptyTitle}>
                 Aucune commande pour le moment
@@ -431,6 +411,33 @@ export default function ProspectOrdersScreen({ route }) {
       />
 
       {renderOrderDetails()}
+
+      {/* Fenêtre d'alerte compatible iPhone, Android et Web */}
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <Pressable style={styles.alertOverlay} onPress={closeDialog}>
+          <Pressable
+            style={styles.alertContent}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.alertTitle}>{dialog.title}</Text>
+
+            <Text style={styles.alertMessage}>{dialog.message}</Text>
+
+            <TouchableOpacity
+              style={styles.alertButton}
+              onPress={closeDialog}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.alertButtonText}>OK</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -668,6 +675,51 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   closeButtonText: {
+    color: "#003300",
+    fontSize: RFPercentage(1.9),
+    fontWeight: "bold",
+  },
+
+  // Styles de la fenêtre d'alerte
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 25,
+  },
+  alertContent: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 22,
+    alignItems: "center",
+  },
+  alertTitle: {
+    color: "#003300",
+    fontSize: RFPercentage(2.4),
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  alertMessage: {
+    color: "#444444",
+    fontSize: RFPercentage(1.9),
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 22,
+  },
+  alertButton: {
+    backgroundColor: "#66CC00",
+    borderRadius: 9,
+    minWidth: 110,
+    minHeight: 44,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  alertButtonText: {
     color: "#003300",
     fontSize: RFPercentage(1.9),
     fontWeight: "bold",

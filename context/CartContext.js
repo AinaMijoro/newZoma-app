@@ -7,18 +7,29 @@ export function CartProvider({ children }) {
 
   // Ajouter un produit ou augmenter sa quantité
   function addToCart(product, quantity = 1, activityId, activityName) {
+    console.log("PRODUIT REÇU PAR LE PANIER :", {
+      name: product.name,
+      specialty: product.specialty,
+      activity: product.activityId,
+    });
     setCartItems((previous) => {
       const existingIndex = previous.findIndex(
         (item) =>
-          item.productId === product._id &&
-          item.activityId === activityId
+          item.productId === product._id && item.activityId === activityId,
       );
-
       if (existingIndex !== -1) {
         return previous.map((item, index) =>
           index === existingIndex
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
+            ? {
+                ...item,
+                quantity: item.quantity + quantity,
+                specialty:
+                  item.specialty ||
+                  product.specialty ||
+                  product.activityId?.specialty ||
+                  "",
+              }
+            : item,
         );
       }
 
@@ -28,6 +39,7 @@ export function CartProvider({ children }) {
           productId: product._id,
           name: product.name,
           description: product.description || "",
+          specialty: product.specialty || product.activityId?.specialty || "",
           price: Number(product.price),
           currency: product.currency,
           quantity,
@@ -45,17 +57,14 @@ export function CartProvider({ children }) {
       if (quantity <= 0) {
         return previous.filter(
           (item) =>
-            !(
-              item.productId === productId &&
-              item.activityId === activityId
-            )
+            !(item.productId === productId && item.activityId === activityId),
         );
       }
 
       return previous.map((item) =>
         item.productId === productId && item.activityId === activityId
           ? { ...item, quantity }
-          : item
+          : item,
       );
     });
   }
@@ -65,11 +74,8 @@ export function CartProvider({ children }) {
     setCartItems((previous) =>
       previous.filter(
         (item) =>
-          !(
-            item.productId === productId &&
-            item.activityId === activityId
-          )
-      )
+          !(item.productId === productId && item.activityId === activityId),
+      ),
     );
   }
 
@@ -79,10 +85,7 @@ export function CartProvider({ children }) {
   }
 
   // Nombre total d'articles
-  const cartCount = cartItems.reduce(
-    (total, item) => total + item.quantity,
-    0
-  );
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
     <CartContext.Provider

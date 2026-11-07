@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from "react";
 import {
   StyleSheet,
@@ -8,10 +7,9 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
-  Platform,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
@@ -63,66 +61,100 @@ export default function MerchantOrdersScreen({ navigation, route }) {
   const [updating, setUpdating] = useState(false);
   const [contacting, setContacting] = useState(false);
 
-  const loadOrders = useCallback(async (isRefresh = false) => {
-    if (!token) {
-      setLoading(false);
-      Alert.alert(
-        "Connexion nécessaire",
-        "Reconnecte-toi pour consulter tes commandes."
-      );
-      return;
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
+  function showDialog(title, message, buttons = []) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  }
+
+  function closeDialog() {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  }
+
+  function handleDialogButton(button) {
+    closeDialog();
+
+    if (button.onPress) {
+      setTimeout(() => button.onPress(), 150);
     }
+  }
 
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const response = await fetch(`${API_URL}/orders/mine`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
-
-      const responseText = await response.text();
-
-      console.log("ORDERS STATUS :", response.status);
-      console.log("ORDERS RESPONSE :", responseText);
-
-      const data = JSON.parse(responseText);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Impossible de récupérer tes commandes."
+  const loadOrders = useCallback(
+    async (isRefresh = false) => {
+      if (!token) {
+        setLoading(false);
+        showDialog(
+          "Connexion nécessaire",
+          "Reconnecte-toi pour consulter tes commandes.",
         );
+        return;
       }
 
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (error) {
-      Alert.alert("Erreur", error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [token]);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/orders/mine`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        const responseText = await response.text();
+
+        console.log("ORDERS STATUS :", response.status);
+        console.log("ORDERS RESPONSE :", responseText);
+
+        const data = JSON.parse(responseText);
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Impossible de récupérer tes commandes.",
+          );
+        }
+
+        setOrders(Array.isArray(data) ? data : []);
+      } catch (error) {
+        showDialog("Erreur", error.message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [token],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadOrders();
-    }, [loadOrders])
+    }, [loadOrders]),
   );
 
   async function contactClient(order) {
     if (contacting) return;
 
     if (!token || !userId) {
-      Alert.alert(
+      showDialog(
         "Connexion nécessaire",
-        "Ta session est introuvable. Reconnecte-toi."
+        "Ta session est introuvable. Reconnecte-toi.",
       );
       return;
     }
@@ -145,15 +177,11 @@ export default function MerchantOrdersScreen({ navigation, route }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Impossible d'ouvrir la conversation."
-        );
+        throw new Error(data.message || "Impossible d'ouvrir la conversation.");
       }
 
       if (!data._id && !data.id) {
-        throw new Error(
-          "Le serveur n'a pas retourné de conversation valide."
-        );
+        throw new Error("Le serveur n'a pas retourné de conversation valide.");
       }
 
       const prospectName = order.prospectId?.name || "Client";
@@ -169,11 +197,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
         userId,
       });
     } catch (error) {
-      if (Platform.OS === "web") {
-        window.alert(error.message);
-      } else {
-        Alert.alert("Erreur", error.message);
-      }
+      showDialog("Erreur", error.message);
     } finally {
       setContacting(false);
     }
@@ -188,64 +212,46 @@ export default function MerchantOrdersScreen({ navigation, route }) {
 
     const message = `Veux-tu vraiment ${labels[newStatus]} cette commande ?`;
 
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(message);
-      if (!confirmed) return;
-    } else {
-      Alert.alert(
-        "Confirmer l'action",
-        message,
-        [
-          { text: "Annuler", style: "cancel" },
-          {
-            text: "Confirmer",
-            onPress: () => performUpdate(),
-          },
-        ]
-      );
-      return;
-    }
-
-    await performUpdate();
+    showDialog("Confirmer l'action", message, [
+      {
+        text: "Annuler",
+        style: "secondary",
+      },
+      {
+        text: "Confirmer",
+        style: "primary",
+        onPress: performUpdate,
+      },
+    ]);
 
     async function performUpdate() {
       setUpdating(true);
 
       try {
-        const response = await fetch(
-          `${API_URL}/orders/${order._id}/status`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ status: newStatus }),
-          }
-        );
+        const response = await fetch(`${API_URL}/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
 
         const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Impossible de modifier la commande."
+            data.message || "Impossible de modifier la commande.",
           );
         }
 
-        if (Platform.OS === "web") {
-          window.alert("Le statut de la commande a été mis à jour.");
-        } else {
-          Alert.alert("Succès", "Le statut de la commande a été mis à jour.");
-        }
-
         setSelectedOrder(null);
+
+        showDialog("Succès", "Le statut de la commande a été mis à jour.");
+
         await loadOrders();
       } catch (error) {
-        if (Platform.OS === "web") {
-          window.alert(error.message);
-        } else {
-          Alert.alert("Erreur", error.message);
-        }
+        showDialog("Erreur", error.message);
       } finally {
         setUpdating(false);
       }
@@ -262,18 +268,14 @@ export default function MerchantOrdersScreen({ navigation, route }) {
 
     const totalProducts = (item.products || []).reduce(
       (total, product) => total + Number(product.quantity || 0),
-      0
+      0,
     );
 
     return (
       <View style={styles.orderCard}>
         <View style={styles.cardHeader}>
           <View style={styles.orderIcon}>
-            <Ionicons
-              name="receipt-outline"
-              size={25}
-              color="#003300"
-            />
+            <Ionicons name="receipt-outline" size={25} color="#003300" />
           </View>
 
           <View style={styles.cardTitleContainer}>
@@ -288,16 +290,9 @@ export default function MerchantOrdersScreen({ navigation, route }) {
         </View>
 
         <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: status.background },
-          ]}
+          style={[styles.statusBadge, { backgroundColor: status.background }]}
         >
-          <Ionicons
-            name={status.icon}
-            size={17}
-            color={status.color}
-          />
+          <Ionicons name={status.icon} size={17} color={status.color} />
 
           <Text style={[styles.statusText, { color: status.color }]}>
             {status.label}
@@ -312,9 +307,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
         </Text>
 
         <Text style={styles.detailLabel}>Produits commandés</Text>
-        <Text style={styles.detailValue}>
-          {totalProducts} article(s)
-        </Text>
+        <Text style={styles.detailValue}>{totalProducts} article(s)</Text>
 
         <Text style={styles.detailLabel}>Date de commande</Text>
         <Text style={styles.detailValue}>
@@ -328,9 +321,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
           onPress={() => setSelectedOrder(item)}
           activeOpacity={0.8}
         >
-          <Text style={styles.detailButtonText}>
-            Voir la commande
-          </Text>
+          <Text style={styles.detailButtonText}>Voir la commande</Text>
 
           <Ionicons
             name="arrow-forward-circle-outline"
@@ -364,18 +355,10 @@ export default function MerchantOrdersScreen({ navigation, route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Détail de la commande
-              </Text>
+              <Text style={styles.modalTitle}>Détail de la commande</Text>
 
-              <TouchableOpacity
-                onPress={() => setSelectedOrder(null)}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={29}
-                  color="#003300"
-                />
+              <TouchableOpacity onPress={() => setSelectedOrder(null)}>
+                <Ionicons name="close-circle" size={29} color="#003300" />
               </TouchableOpacity>
             </View>
 
@@ -405,12 +388,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
                       color={status.color}
                     />
 
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: status.color },
-                      ]}
-                    >
+                    <Text style={[styles.statusText, { color: status.color }]}>
                       {status.label}
                     </Text>
                   </View>
@@ -430,18 +408,14 @@ export default function MerchantOrdersScreen({ navigation, route }) {
                     {item.activityId?.name || "Activité non renseignée"}
                   </Text>
 
-                  <Text style={styles.modalLabel}>
-                    Produits commandés
-                  </Text>
+                  <Text style={styles.modalLabel}>Produits commandés</Text>
 
                   {(item.products || []).map((product, index) => (
                     <View
                       key={`${product.productId || index}`}
                       style={styles.productLine}
                     >
-                      <Text style={styles.productName}>
-                        {product.name}
-                      </Text>
+                      <Text style={styles.productName}>{product.name}</Text>
 
                       <Text style={styles.productDescription}>
                         {product.quantity} × {formatPrice(product.price)}{" "}
@@ -459,17 +433,12 @@ export default function MerchantOrdersScreen({ navigation, route }) {
                   <Text style={styles.modalLabel}>Total de la commande</Text>
 
                   {Object.entries(totals).map(([currency, total]) => (
-                    <Text
-                      key={currency}
-                      style={styles.totalValue}
-                    >
+                    <Text key={currency} style={styles.totalValue}>
                       {formatPrice(total)} {currency}
                     </Text>
                   ))}
 
-                  <Text style={styles.modalLabel}>
-                    Date de commande
-                  </Text>
+                  <Text style={styles.modalLabel}>Date de commande</Text>
 
                   <Text style={styles.modalValue}>
                     {item.createdAt
@@ -509,9 +478,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
                   <TouchableOpacity
                     style={styles.acceptButton}
                     disabled={updating}
-                    onPress={() =>
-                      updateOrderStatus(selectedOrder, "accepted")
-                    }
+                    onPress={() => updateOrderStatus(selectedOrder, "accepted")}
                     activeOpacity={0.8}
                   >
                     <Ionicons
@@ -528,9 +495,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
                   <TouchableOpacity
                     style={styles.rejectButton}
                     disabled={updating}
-                    onPress={() =>
-                      updateOrderStatus(selectedOrder, "rejected")
-                    }
+                    onPress={() => updateOrderStatus(selectedOrder, "rejected")}
                     activeOpacity={0.8}
                   >
                     <Ionicons
@@ -550,9 +515,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
                 <TouchableOpacity
                   style={styles.acceptButton}
                   disabled={updating}
-                  onPress={() =>
-                    updateOrderStatus(selectedOrder, "completed")
-                  }
+                  onPress={() => updateOrderStatus(selectedOrder, "completed")}
                   activeOpacity={0.8}
                 >
                   <Ionicons
@@ -626,11 +589,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
         ListEmptyComponent={
           loading ? null : (
             <View style={styles.emptyContainer}>
-              <Ionicons
-                name="receipt-outline"
-                size={55}
-                color="#CDAB82"
-              />
+              <Ionicons name="receipt-outline" size={55} color="#CDAB82" />
 
               <Text style={styles.emptyTitle}>
                 Aucune commande pour le moment
@@ -654,6 +613,50 @@ export default function MerchantOrdersScreen({ navigation, route }) {
       />
 
       {renderOrderDetails()}
+
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <Pressable style={styles.dialogOverlay} onPress={closeDialog}>
+          <Pressable
+            style={styles.dialogContent}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogActions}>
+              {dialog.buttons.map((button, index) => (
+                <TouchableOpacity
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "secondary" &&
+                      styles.dialogSecondaryButton,
+                    button.style === "danger" && styles.dialogDangerButton,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary" &&
+                        styles.dialogSecondaryButtonText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -942,5 +945,62 @@ const styles = StyleSheet.create({
     color: "#003300",
     fontSize: RFPercentage(1.9),
     fontWeight: "bold",
+  },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 25,
+  },
+  dialogContent: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 22,
+    elevation: 8,
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#444444",
+    fontSize: 16,
+    lineHeight: 23,
+  },
+  dialogActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    marginTop: 22,
+    gap: 10,
+  },
+  dialogButton: {
+    minWidth: 95,
+    minHeight: 42,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 9,
+    backgroundColor: "#66CC00",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dialogSecondaryButton: {
+    backgroundColor: "#EEEEEE",
+  },
+  dialogDangerButton: {
+    backgroundColor: "#B42318",
+  },
+  dialogButtonText: {
+    color: "#003300",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  dialogSecondaryButtonText: {
+    color: "#444444",
   },
 });

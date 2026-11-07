@@ -8,13 +8,12 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import API_URL from "../config/api";
-
-
 
 const SPECIALTIES = [
   "Traiteurs",
@@ -68,9 +67,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
   const initialActivitySettings = {};
 
   if (editingActivity) {
-    const specialtyKey = isKnownSpecialty
-      ? initialSpecialty
-      : "Autre service";
+    const specialtyKey = isKnownSpecialty ? initialSpecialty : "Autre service";
 
     const deliveriesByCountry = {};
 
@@ -81,48 +78,74 @@ export default function ProviderSetupScreen({ route, navigation }) {
           delivery.minimumAmount !== undefined
             ? String(delivery.minimumAmount)
             : "",
-        fee:
-          delivery.fee !== undefined ? String(delivery.fee) : "",
+        fee: delivery.fee !== undefined ? String(delivery.fee) : "",
       };
     });
 
     initialActivitySettings[specialtyKey] = {
       countries: editingActivity.countries || [],
-      frenchDepartments: (
-        editingActivity.frenchDepartments || []
-      ).join(", "),
+      frenchDepartments: (editingActivity.frenchDepartments || []).join(", "),
       frenchCities: (editingActivity.frenchCities || []).join(", "),
-      madagascarCities: (
-        editingActivity.madagascarCities || []
-      ).join(", "),
+      madagascarCities: (editingActivity.madagascarCities || []).join(", "),
       parcelDirections: editingActivity.parcelDirections || [],
       deliveries: deliveriesByCountry,
     };
   }
 
   const [merchantName, setMerchantName] = useState(
-    editingActivity?.name || initialMerchantName
+    editingActivity?.name || initialMerchantName,
   );
 
   const [activitySettings, setActivitySettings] = useState(
-    initialActivitySettings
+    initialActivitySettings,
   );
 
   const [selectedSpecialties, setSelectedSpecialties] = useState(
-    initialSelectedSpecialties
+    initialSelectedSpecialties,
   );
 
-  const [otherSpecialty, setOtherSpecialty] = useState(
-    initialOtherSpecialty
-  );
+  const [otherSpecialty, setOtherSpecialty] = useState(initialOtherSpecialty);
 
   const [loading, setLoading] = useState(false);
+
+  // Fenêtre de dialogue personnalisée
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
+  function showDialog(title, message, buttons = []) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons:
+        buttons.length > 0 ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  }
+
+  function closeDialog() {
+    setDialog((current) => ({
+      ...current,
+      visible: false,
+    }));
+  }
+
+  function handleDialogButton(button) {
+    closeDialog();
+
+    if (button.onPress) {
+      button.onPress();
+    }
+  }
 
   function toggleSpecialty(value) {
     setSelectedSpecialties((current) =>
       current.includes(value)
         ? current.filter((item) => item !== value)
-        : [...current, value]
+        : [...current, value],
     );
   }
 
@@ -148,19 +171,11 @@ export default function ProviderSetupScreen({ route, navigation }) {
       ? currentDirections.filter((item) => item !== value)
       : [...currentDirections, value];
 
-    updateActivitySetting(
-      specialty,
-      "parcelDirections",
-      updatedDirections
-    );
+    updateActivitySetting(specialty, "parcelDirections", updatedDirections);
   }
 
   function toggleActivityCountry(specialty, country) {
-    const currentCountries = getActivitySetting(
-      specialty,
-      "countries",
-      []
-    );
+    const currentCountries = getActivitySetting(specialty, "countries", []);
 
     const updatedCountries = currentCountries.includes(country)
       ? currentCountries.filter((item) => item !== country)
@@ -185,12 +200,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
     }));
   }
 
-  function getCountryDelivery(
-    specialty,
-    country,
-    field,
-    defaultValue = ""
-  ) {
+  function getCountryDelivery(specialty, country, field, defaultValue = "") {
     return (
       activitySettings[specialty]?.deliveries?.[country]?.[field] ??
       defaultValue
@@ -207,10 +217,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
         activeOpacity={0.8}
       >
         <Text
-          style={[
-            styles.optionText,
-            selected && styles.optionTextSelected,
-          ]}
+          style={[styles.optionText, selected && styles.optionTextSelected]}
         >
           {selected ? "✓ " : "○ "}
           {label}
@@ -221,10 +228,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
 
   async function openMyOffers() {
     if (!userId || !token) {
-      Alert.alert(
-        "Connexion nécessaire",
-        "Reconnecte-toi puis réessaie."
-      );
+      showDialog("Connexion nécessaire", "Reconnecte-toi puis réessaie.");
       return;
     }
 
@@ -239,16 +243,16 @@ export default function ProviderSetupScreen({ route, navigation }) {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Impossible de récupérer tes activités."
+          data.message || "Impossible de récupérer tes activités.",
         );
       }
 
       const activities = data.activities || [];
 
       if (activities.length === 0) {
-        Alert.alert(
+        showDialog(
           "Aucune activité disponible",
-          "Tu n'as pas encore d'activité enregistrée."
+          "Tu n'as pas encore d'activité enregistrée.",
         );
         return;
       }
@@ -260,32 +264,26 @@ export default function ProviderSetupScreen({ route, navigation }) {
         activities,
       });
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     }
   }
 
   async function saveActivity() {
     if (!userId || !token) {
-      Alert.alert(
+      showDialog(
         "Erreur",
-        "Ta session a expiré. Reconnecte-toi puis réessaie."
+        "Ta session a expiré. Reconnecte-toi puis réessaie.",
       );
       return;
     }
 
     if (selectedSpecialties.length === 0) {
-      Alert.alert(
-        "Information manquante",
-        "Choisis au moins une spécialité."
-      );
+      showDialog("Information manquante", "Choisis au moins une spécialité.");
       return;
     }
 
     if (!merchantName.trim()) {
-      Alert.alert(
-        "Information manquante",
-        "Indique ton nom commercial."
-      );
+      showDialog("Information manquante", "Indique ton nom commercial.");
       return;
     }
 
@@ -293,10 +291,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
       selectedSpecialties.includes("Autre service") &&
       !otherSpecialty.trim()
     ) {
-      Alert.alert(
-        "Information manquante",
-        "Décris le service que tu proposes."
-      );
+      showDialog("Information manquante", "Décris le service que tu proposes.");
       return;
     }
 
@@ -304,8 +299,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
     const activitiesToCreate = [];
 
     for (const item of selectedSpecialties) {
-      const isParcel =
-        item === "Envoi de colis France ↔ Madagascar";
+      const isParcel = item === "Envoi de colis France ↔ Madagascar";
 
       const finalSpecialty =
         item === "Autre service" ? otherSpecialty.trim() : item;
@@ -314,37 +308,25 @@ export default function ProviderSetupScreen({ route, navigation }) {
         ? ["France", "Madagascar"]
         : getActivitySetting(item, "countries", []);
 
-      const directions = getActivitySetting(
-        item,
-        "parcelDirections",
-        []
-      );
+      const directions = getActivitySetting(item, "parcelDirections", []);
 
       const deliveries = [];
 
       for (const country of countries) {
-        const deliveryType = getCountryDelivery(
-          item,
-          country,
-          "type"
-        );
+        const deliveryType = getCountryDelivery(item, country, "type");
 
         const minimumAmount = getCountryDelivery(
           item,
           country,
-          "minimumAmount"
+          "minimumAmount",
         );
 
-        const deliveryFee = getCountryDelivery(
-          item,
-          country,
-          "fee"
-        );
+        const deliveryFee = getCountryDelivery(item, country, "fee");
 
         if (!deliveryType) {
-          Alert.alert(
+          showDialog(
             "Livraison manquante",
-            `Choisis une condition de livraison pour ${country}, dans l'activité ${finalSpecialty}.`
+            `Choisis une condition de livraison pour ${country}, dans l'activité ${finalSpecialty}.`,
           );
           return;
         }
@@ -360,9 +342,9 @@ export default function ProviderSetupScreen({ route, navigation }) {
             !Number.isFinite(parsedMinimum) ||
             parsedMinimum <= 0
           ) {
-            Alert.alert(
+            showDialog(
               "Montant invalide",
-              `Indique un montant minimum supérieur à zéro pour ${country}.`
+              `Indique un montant minimum supérieur à zéro pour ${country}.`,
             );
             return;
           }
@@ -376,9 +358,9 @@ export default function ProviderSetupScreen({ route, navigation }) {
             !Number.isFinite(parsedFee) ||
             parsedFee < 0
           ) {
-            Alert.alert(
+            showDialog(
               "Frais invalides",
-              `Indique des frais de livraison valides pour ${country}.`
+              `Indique des frais de livraison valides pour ${country}.`,
             );
             return;
           }
@@ -391,33 +373,27 @@ export default function ProviderSetupScreen({ route, navigation }) {
           ...(deliveryType === "free_over_minimum"
             ? { minimumAmount: parsedMinimum }
             : {}),
-          ...(deliveryType === "flat_fee"
-            ? { fee: parsedFee }
-            : {}),
+          ...(deliveryType === "flat_fee" ? { fee: parsedFee } : {}),
         });
       }
 
       const departments = splitValues(
-        getActivitySetting(item, "frenchDepartments")
+        getActivitySetting(item, "frenchDepartments"),
       );
 
       const frenchCities = splitValues(
-        getActivitySetting(item, "frenchCities")
+        getActivitySetting(item, "frenchCities"),
       );
 
       const madagascarCities = splitValues(
-        getActivitySetting(item, "madagascarCities")
+        getActivitySetting(item, "madagascarCities"),
       );
 
       activitiesToCreate.push({
         specialty: finalSpecialty,
         countries,
-        frenchDepartments: countries.includes("France")
-          ? departments
-          : [],
-        frenchCities: countries.includes("France")
-          ? frenchCities
-          : [],
+        frenchDepartments: countries.includes("France") ? departments : [],
+        frenchCities: countries.includes("France") ? frenchCities : [],
         madagascarCities: countries.includes("Madagascar")
           ? madagascarCities
           : [],
@@ -440,26 +416,27 @@ export default function ProviderSetupScreen({ route, navigation }) {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(activitiesToCreate[0]),
-          }
+          },
         );
 
         const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Impossible de modifier cette activité."
+            data.message || "Impossible de modifier cette activité.",
           );
         }
 
-        Alert.alert(
+        showDialog(
           "Modification enregistrée",
           data.message || "Ton activité a été modifiée.",
           [
             {
               text: "Continuer",
+              style: "primary",
               onPress: () => navigation.goBack(),
             },
-          ]
+          ],
         );
 
         return;
@@ -467,27 +444,24 @@ export default function ProviderSetupScreen({ route, navigation }) {
 
       // MODE CRÉATION : enregistrer le nom commercial si nécessaire
       if (!initialMerchantName) {
-        const merchantResponse = await fetch(
-          `${API_URL}/users/merchant-name`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              merchantName: merchantName.trim(),
-            }),
-          }
-        );
+        const merchantResponse = await fetch(`${API_URL}/users/merchant-name`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            merchantName: merchantName.trim(),
+          }),
+        });
 
         const merchantData = await merchantResponse.json();
 
         if (!merchantResponse.ok) {
-          Alert.alert(
+          showDialog(
             "Nom commercial non enregistré",
             merchantData.message ||
-              "Impossible d'enregistrer ton nom commercial."
+              "Impossible d'enregistrer ton nom commercial.",
           );
           return;
         }
@@ -511,13 +485,13 @@ export default function ProviderSetupScreen({ route, navigation }) {
         if (!response.ok) {
           console.log("Erreur activité :", response.status, data);
 
-          Alert.alert(
+          showDialog(
             "Enregistrement interrompu",
             `L'activité « ${activityData.specialty} » n'a pas pu être enregistrée. ${
               createdActivityIds.length > 0
                 ? `${createdActivityIds.length} activité(s) précédente(s) ont déjà été enregistrées.`
                 : data.message || "Réessaie plus tard."
-            }`
+            }`,
           );
           return;
         }
@@ -529,12 +503,13 @@ export default function ProviderSetupScreen({ route, navigation }) {
         }
       }
 
-      Alert.alert(
+      showDialog(
         "Activités enregistrées",
         `${createdActivityIds.length} activité(s) ont été enregistrées et attendent la validation de l'équipe NewZoma.`,
         [
           {
             text: "Continuer",
+            style: "primary",
             onPress: () => {
               navigation.replace("Offers", {
                 userId,
@@ -545,15 +520,15 @@ export default function ProviderSetupScreen({ route, navigation }) {
               });
             },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error("Erreur activités :", error);
 
-      Alert.alert(
+      showDialog(
         "Erreur",
         error.message ||
-          "Impossible de joindre le serveur. Vérifie que le backend fonctionne."
+          "Impossible de joindre le serveur. Vérifie que le backend fonctionne.",
       );
     } finally {
       setLoading(false);
@@ -574,9 +549,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
         />
 
         <Text style={styles.title}>
-          {isEditing
-            ? "Modifier mon activité"
-            : "Présente ton activité"}
+          {isEditing ? "Modifier mon activité" : "Présente ton activité"}
         </Text>
 
         <Text style={styles.subtitle}>
@@ -605,11 +578,9 @@ export default function ProviderSetupScreen({ route, navigation }) {
         <Text style={styles.label}>Ta spécialité *</Text>
 
         {SPECIALTIES.map((item) =>
-          renderOption(
-            item,
-            selectedSpecialties.includes(item),
-            () => toggleSpecialty(item)
-          )
+          renderOption(item, selectedSpecialties.includes(item), () =>
+            toggleSpecialty(item),
+          ),
         )}
 
         {selectedSpecialties.includes("Autre service") && (
@@ -627,8 +598,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
         )}
 
         {selectedSpecialties.map((item) => {
-          const isParcel =
-            item === "Envoi de colis France ↔ Madagascar";
+          const isParcel = item === "Envoi de colis France ↔ Madagascar";
 
           const selectedCountries = isParcel
             ? ["France", "Madagascar"]
@@ -636,11 +606,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
 
           const countries = selectedCountries;
 
-          const directions = getActivitySetting(
-            item,
-            "parcelDirections",
-            []
-          );
+          const directions = getActivitySetting(item, "parcelDirections", []);
 
           return (
             <View key={item} style={styles.fullWidth}>
@@ -650,52 +616,39 @@ export default function ProviderSetupScreen({ route, navigation }) {
                   : item}
               </Text>
 
-              <Text style={styles.label}>
-                Pays d'intervention *
-              </Text>
+              <Text style={styles.label}>Pays d'intervention *</Text>
 
               {isParcel ? (
                 <View style={styles.notice}>
-                  <Text style={styles.noticeText}>
-                    France et Madagascar
-                  </Text>
+                  <Text style={styles.noticeText}>France et Madagascar</Text>
                 </View>
               ) : (
                 <>
                   {renderOption(
                     "France",
                     selectedCountries.includes("France"),
-                    () => toggleActivityCountry(item, "France")
+                    () => toggleActivityCountry(item, "France"),
                   )}
 
                   {renderOption(
                     "Madagascar",
                     selectedCountries.includes("Madagascar"),
-                    () => toggleActivityCountry(item, "Madagascar")
+                    () => toggleActivityCountry(item, "Madagascar"),
                   )}
                 </>
               )}
 
               {countries.includes("France") && (
                 <>
-                  <Text style={styles.label}>
-                    Départements français
-                  </Text>
+                  <Text style={styles.label}>Départements français</Text>
 
                   <TextInput
                     style={styles.input}
                     placeholder="Ex. : 75, 93, 94"
                     placeholderTextColor="#777777"
-                    value={getActivitySetting(
-                      item,
-                      "frenchDepartments"
-                    )}
+                    value={getActivitySetting(item, "frenchDepartments")}
                     onChangeText={(value) =>
-                      updateActivitySetting(
-                        item,
-                        "frenchDepartments",
-                        value
-                      )
+                      updateActivitySetting(item, "frenchDepartments", value)
                     }
                     editable={!loading}
                   />
@@ -708,11 +661,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
                     placeholderTextColor="#777777"
                     value={getActivitySetting(item, "frenchCities")}
                     onChangeText={(value) =>
-                      updateActivitySetting(
-                        item,
-                        "frenchCities",
-                        value
-                      )
+                      updateActivitySetting(item, "frenchCities", value)
                     }
                     editable={!loading}
                   />
@@ -721,24 +670,15 @@ export default function ProviderSetupScreen({ route, navigation }) {
 
               {countries.includes("Madagascar") && (
                 <>
-                  <Text style={styles.label}>
-                    Villes à Madagascar
-                  </Text>
+                  <Text style={styles.label}>Villes à Madagascar</Text>
 
                   <TextInput
                     style={styles.input}
                     placeholder="Ex. : Antananarivo, Toamasina"
                     placeholderTextColor="#777777"
-                    value={getActivitySetting(
-                      item,
-                      "madagascarCities"
-                    )}
+                    value={getActivitySetting(item, "madagascarCities")}
                     onChangeText={(value) =>
-                      updateActivitySetting(
-                        item,
-                        "madagascarCities",
-                        value
-                      )
+                      updateActivitySetting(item, "madagascarCities", value)
                     }
                     editable={!loading}
                   />
@@ -752,34 +692,21 @@ export default function ProviderSetupScreen({ route, navigation }) {
                   {renderOption(
                     "France vers Madagascar",
                     directions.includes("france_to_madagascar"),
-                    () =>
-                      toggleActivityDirection(
-                        item,
-                        "france_to_madagascar"
-                      )
+                    () => toggleActivityDirection(item, "france_to_madagascar"),
                   )}
 
                   {renderOption(
                     "Madagascar vers France",
                     directions.includes("madagascar_to_france"),
-                    () =>
-                      toggleActivityDirection(
-                        item,
-                        "madagascar_to_france"
-                      )
+                    () => toggleActivityDirection(item, "madagascar_to_france"),
                   )}
                 </>
               )}
 
               {countries.map((country) => {
-                const currency =
-                  country === "France" ? "EUR (€)" : "MGA (Ar)";
+                const currency = country === "France" ? "EUR (€)" : "MGA (Ar)";
 
-                const deliveryValue = getCountryDelivery(
-                  item,
-                  country,
-                  "type"
-                );
+                const deliveryValue = getCountryDelivery(item, country, "type");
 
                 return (
                   <View key={country} style={styles.fullWidth}>
@@ -796,9 +723,9 @@ export default function ProviderSetupScreen({ route, navigation }) {
                             item,
                             country,
                             "type",
-                            option.value
-                          )
-                      )
+                            option.value,
+                          ),
+                      ),
                     )}
 
                     {deliveryValue === "free_over_minimum" && (
@@ -812,18 +739,14 @@ export default function ProviderSetupScreen({ route, navigation }) {
                           placeholder="Indique le montant minimum"
                           placeholderTextColor="#777777"
                           value={String(
-                            getCountryDelivery(
-                              item,
-                              country,
-                              "minimumAmount"
-                            )
+                            getCountryDelivery(item, country, "minimumAmount"),
                           )}
                           onChangeText={(value) =>
                             updateCountryDelivery(
                               item,
                               country,
                               "minimumAmount",
-                              value
+                              value,
                             )
                           }
                           keyboardType="decimal-pad"
@@ -843,19 +766,10 @@ export default function ProviderSetupScreen({ route, navigation }) {
                           placeholder="Indique les frais"
                           placeholderTextColor="#777777"
                           value={String(
-                            getCountryDelivery(
-                              item,
-                              country,
-                              "fee"
-                            )
+                            getCountryDelivery(item, country, "fee"),
                           )}
                           onChangeText={(value) =>
-                            updateCountryDelivery(
-                              item,
-                              country,
-                              "fee",
-                              value
-                            )
+                            updateCountryDelivery(item, country, "fee", value)
                           }
                           keyboardType="decimal-pad"
                           editable={!loading}
@@ -870,10 +784,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
         })}
 
         <TouchableOpacity
-          style={[
-            styles.saveButton,
-            loading && styles.disabledButton,
-          ]}
+          style={[styles.saveButton, loading && styles.disabledButton]}
           onPress={saveActivity}
           disabled={loading}
           activeOpacity={0.8}
@@ -896,9 +807,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
             disabled={loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.offersButtonText}>
-              Accéder à mes offres
-            </Text>
+            <Text style={styles.offersButtonText}>Accéder à mes offres</Text>
           </TouchableOpacity>
         )}
 
@@ -908,6 +817,48 @@ export default function ProviderSetupScreen({ route, navigation }) {
             : "Ton activité sera en attente de validation par NewZoma."}
         </Text>
       </ScrollView>
+
+      {/* Fenêtre de dialogue compatible iOS, Android et Web */}
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dialogBox}>
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogButtons}>
+              {dialog.buttons.map((button, index) => (
+                <Pressable
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "secondary"
+                      ? styles.dialogSecondary
+                      : styles.dialogPrimary,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary"
+                        ? styles.dialogSecondaryText
+                        : styles.dialogPrimaryText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1056,5 +1007,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
+  },
+
+  // Styles de la fenêtre personnalisée
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  dialogBox: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+    padding: 22,
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 21,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#444444",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 23,
+    marginBottom: 22,
+  },
+  dialogButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 10,
+  },
+  dialogButton: {
+    flexGrow: 1,
+    flexBasis: "45%",
+    minHeight: 46,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  dialogPrimary: {
+    backgroundColor: "#CDAB82",
+  },
+  dialogSecondary: {
+    backgroundColor: "#E8E8E8",
+  },
+  dialogButtonText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  dialogPrimaryText: {
+    color: "#003300",
+  },
+  dialogSecondaryText: {
+    color: "#333333",
   },
 });

@@ -7,29 +7,54 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 
 import { useCart } from "../context/CartContext";
 import API_URL from "../config/api";
 
-
-
 export default function CartScreen({ route, navigation }) {
   const { token } = route.params || {};
 
-  const {
-    cartItems,
-    cartCount,
-    updateQuantity,
-    removeFromCart,
-    clearCart,
-  } = useCart();
+  const { cartItems, cartCount, updateQuantity, removeFromCart, clearCart } =
+    useCart();
 
   const [submitting, setSubmitting] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
 
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
   const requestLock = useRef(false);
+
+  function showDialog(title, message, buttons = []) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  }
+
+  function closeDialog() {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  }
+
+  function handleDialogButton(button) {
+    closeDialog();
+
+    if (button.onPress) {
+      setTimeout(() => button.onPress(), 150);
+    }
+  }
 
   // Regrouper les produits par activité
   const groupedItems = cartItems.reduce((groups, item) => {
@@ -60,21 +85,22 @@ export default function CartScreen({ route, navigation }) {
     return totals;
   }, {});
 
+  // Confirmer les commandes
   async function handleConfirmOrder() {
     if (requestLock.current || orderConfirmed) {
       return;
     }
 
     if (!token) {
-      Alert.alert(
+      showDialog(
         "Connexion requise",
-        "Veuillez vous reconnecter pour confirmer votre commande."
+        "Veuillez vous reconnecter pour confirmer votre commande.",
       );
       return;
     }
 
     if (cartItems.length === 0) {
-      Alert.alert("Panier vide", "Ajoutez au moins un produit.");
+      showDialog("Panier vide", "Ajoutez au moins un produit.");
       return;
     }
 
@@ -107,15 +133,13 @@ export default function CartScreen({ route, navigation }) {
         try {
           data = JSON.parse(responseText);
         } catch {
-          throw new Error(
-            "Le serveur a renvoyé une réponse invalide."
-          );
+          throw new Error("Le serveur a renvoyé une réponse invalide.");
         }
 
         if (!response.ok) {
           throw new Error(
             data.message ||
-              `Impossible d'envoyer la commande pour ${group.activityName}.`
+              `Impossible d'envoyer la commande pour ${group.activityName}.`,
           );
         }
       }
@@ -123,12 +147,13 @@ export default function CartScreen({ route, navigation }) {
       setOrderConfirmed(true);
       clearCart();
 
-      Alert.alert(
+      showDialog(
         "Commandes envoyées !",
         `Vos ${activityGroups.length} commande(s) ont bien été enregistrées. Vous pourrez suivre leur évolution dans Mes commandes.`,
         [
           {
             text: "Voir mes commandes",
+            style: "primary",
             onPress: () => {
               navigation.navigate("ProspectTabs", {
                 screen: "ProspectOrders",
@@ -136,23 +161,42 @@ export default function CartScreen({ route, navigation }) {
               });
             },
           },
-        ]
+        ],
       );
     } catch (error) {
-      Alert.alert(
+      showDialog(
         "Erreur",
         error.message ||
-          "Une erreur est survenue lors de l'envoi des commandes."
+          "Une erreur est survenue lors de l'envoi des commandes.",
       );
 
-      // Attention : si certaines commandes ont déjà été enregistrées,
-      // ne pas relancer automatiquement toutes les commandes.
-      // Le verrou reste actif pour éviter les doublons.
+      // Le verrou reste actif pour éviter les doublons
+      // si certaines commandes ont déjà été enregistrées.
     } finally {
       setSubmitting(false);
     }
   }
 
+  // Retirer un produit du panier
+  function handleRemoveProduct(item) {
+    if (submitting) {
+      return;
+    }
+
+    showDialog("Retirer le produit", `Retirer ${item.name} du panier ?`, [
+      {
+        text: "Annuler",
+        style: "secondary",
+      },
+      {
+        text: "Retirer",
+        style: "danger",
+        onPress: () => removeFromCart(item.productId, item.activityId),
+      },
+    ]);
+  }
+
+  // Afficher un produit
   function renderProduct({ item }) {
     const subtotal = Number(item.price) * Number(item.quantity);
 
@@ -160,10 +204,15 @@ export default function CartScreen({ route, navigation }) {
       <View style={styles.card}>
         <Text style={styles.productName}>{item.name}</Text>
 
-        {!!item.description && (
-          <Text style={styles.description}>
-            {item.description}
+        {/* Catégorie de l'activité */}
+        {!!item.specialty && (
+          <Text style={styles.productCategory}>
+            Catégorie : {item.specialty}
           </Text>
+        )}
+
+        {!!item.description && (
+          <Text style={styles.description}>{item.description}</Text>
         )}
 
         <Text style={styles.detail}>
@@ -177,11 +226,7 @@ export default function CartScreen({ route, navigation }) {
             style={styles.quantityButton}
             disabled={submitting}
             onPress={() =>
-              updateQuantity(
-                item.productId,
-                item.activityId,
-                item.quantity - 1
-              )
+              updateQuantity(item.productId, item.activityId, item.quantity - 1)
             }
           >
             <Text style={styles.quantityButtonText}>−</Text>
@@ -193,11 +238,7 @@ export default function CartScreen({ route, navigation }) {
             style={styles.quantityButton}
             disabled={submitting}
             onPress={() =>
-              updateQuantity(
-                item.productId,
-                item.activityId,
-                item.quantity + 1
-              )
+              updateQuantity(item.productId, item.activityId, item.quantity + 1)
             }
           >
             <Text style={styles.quantityButtonText}>+</Text>
@@ -211,25 +252,9 @@ export default function CartScreen({ route, navigation }) {
         <TouchableOpacity
           style={styles.removeButton}
           disabled={submitting}
-          onPress={() =>
-            Alert.alert(
-              "Retirer le produit",
-              `Retirer ${item.name} du panier ?`,
-              [
-                { text: "Annuler", style: "cancel" },
-                {
-                  text: "Retirer",
-                  style: "destructive",
-                  onPress: () =>
-                    removeFromCart(item.productId, item.activityId),
-                },
-              ]
-            )
-          }
+          onPress={() => handleRemoveProduct(item)}
         >
-          <Text style={styles.removeButtonText}>
-            Retirer du panier
-          </Text>
+          <Text style={styles.removeButtonText}>Retirer du panier</Text>
         </TouchableOpacity>
       </View>
     );
@@ -278,17 +303,13 @@ export default function CartScreen({ route, navigation }) {
           cartItems.length > 0 ? (
             <View>
               <View style={styles.totalContainer}>
-                <Text style={styles.totalTitle}>
-                  Total du panier
-                </Text>
+                <Text style={styles.totalTitle}>Total du panier</Text>
 
-                {Object.entries(totalsByCurrency).map(
-                  ([currency, total]) => (
-                    <Text style={styles.total} key={currency}>
-                      {total.toFixed(2)} {currency}
-                    </Text>
-                  )
-                )}
+                {Object.entries(totalsByCurrency).map(([currency, total]) => (
+                  <Text style={styles.total} key={currency}>
+                    {total.toFixed(2)} {currency}
+                  </Text>
+                ))}
 
                 <Text style={styles.totalNote}>
                   Les commandes seront envoyées séparément à chaque vendeur.
@@ -316,6 +337,53 @@ export default function CartScreen({ route, navigation }) {
           ) : null
         }
       />
+
+      {/* Fenêtre de dialogue personnalisée */}
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <Pressable style={styles.dialogOverlay} onPress={closeDialog}>
+          <Pressable
+            style={styles.dialogContent}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogActions}>
+              {dialog.buttons.map((button, index) => (
+                <TouchableOpacity
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "secondary" &&
+                      styles.dialogSecondaryButton,
+                    button.style === "danger" && styles.dialogDangerButton,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary" &&
+                        styles.dialogSecondaryButtonText,
+                      button.style === "danger" &&
+                        styles.dialogDangerButtonText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -325,21 +393,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#003300",
   },
+
   listContent: {
     flexGrow: 1,
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 30,
   },
+
   header: {
     alignItems: "center",
     marginBottom: 20,
   },
+
   logo: {
     width: "100%",
     height: 115,
     marginBottom: 12,
   },
+
   title: {
     fontSize: 24,
     fontWeight: "bold",
@@ -347,20 +419,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
+
   activityName: {
     color: "#FFFFFF",
     fontSize: 15,
     textAlign: "center",
   },
+
   activityGroup: {
     marginBottom: 18,
   },
+
   activityTitle: {
     color: "#66CC00",
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 10,
   },
+
   card: {
     backgroundColor: "#FFFFFF",
     borderColor: "#CDAB82",
@@ -369,26 +445,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
+
   productName: {
     fontSize: 17,
     fontWeight: "bold",
     color: "#003300",
   },
+
+  productCategory: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#668844",
+    marginTop: 5,
+  },
+
   description: {
     fontSize: 14,
     color: "#555555",
     marginTop: 6,
   },
+
   detail: {
     fontSize: 14,
     color: "#444444",
     marginTop: 8,
   },
+
   quantityRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 12,
   },
+
   quantityButton: {
     backgroundColor: "#CDAB82",
     width: 34,
@@ -398,23 +486,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: 10,
   },
+
   quantityButtonText: {
     color: "#003300",
     fontSize: 22,
     fontWeight: "bold",
   },
+
   quantity: {
     color: "#003300",
     fontWeight: "bold",
     fontSize: 16,
     marginHorizontal: 12,
   },
+
   subtotal: {
     fontSize: 15,
     fontWeight: "bold",
     color: "#003300",
     marginTop: 12,
   },
+
   removeButton: {
     alignSelf: "flex-start",
     marginTop: 12,
@@ -424,10 +516,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#C62828",
   },
+
   removeButtonText: {
     color: "#C62828",
     fontWeight: "bold",
   },
+
   totalContainer: {
     backgroundColor: "#FFFFFF",
     borderColor: "#CDAB82",
@@ -437,24 +531,28 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 10,
   },
+
   totalTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#003300",
     marginBottom: 8,
   },
+
   total: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#003300",
     marginTop: 4,
   },
+
   totalNote: {
     fontSize: 13,
     color: "#555555",
     marginTop: 12,
     lineHeight: 19,
   },
+
   message: {
     textAlign: "center",
     color: "#FFFFFF",
@@ -462,6 +560,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+
   confirmButton: {
     backgroundColor: "#CDAB82",
     minHeight: 52,
@@ -471,12 +570,85 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 10,
   },
+
   confirmButtonText: {
     color: "#003300",
     fontSize: 16,
     fontWeight: "bold",
   },
+
   disabledButton: {
     opacity: 0.5,
+  },
+
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 25,
+  },
+
+  dialogContent: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 22,
+    elevation: 8,
+  },
+
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+
+  dialogMessage: {
+    color: "#444444",
+    fontSize: 16,
+    lineHeight: 23,
+  },
+
+  dialogActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    marginTop: 22,
+    gap: 10,
+  },
+
+  dialogButton: {
+    minWidth: 95,
+    minHeight: 42,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 9,
+    backgroundColor: "#66CC00",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  dialogSecondaryButton: {
+    backgroundColor: "#EEEEEE",
+  },
+
+  dialogDangerButton: {
+    backgroundColor: "#B42318",
+  },
+
+  dialogButtonText: {
+    color: "#003300",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+
+  dialogSecondaryButtonText: {
+    color: "#444444",
+  },
+
+  dialogDangerButtonText: {
+    color: "#FFFFFF",
   },
 });

@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from "react";
 import {
   StyleSheet,
@@ -8,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
 } from "react-native";
@@ -17,8 +15,6 @@ import { RFPercentage } from "react-native-responsive-fontsize";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import API_URL from "../config/api";
-
-
 
 const STATUS = {
   pending: {
@@ -47,10 +43,7 @@ function formatDeliveries(deliveries) {
     return ["Aucune condition renseignée"];
   }
 
-  // Accepte aussi bien un tableau qu'un objet unique
-  const deliveryList = Array.isArray(deliveries)
-    ? deliveries
-    : [deliveries];
+  const deliveryList = Array.isArray(deliveries) ? deliveries : [deliveries];
 
   if (deliveryList.length === 0) {
     return ["Aucune condition renseignée"];
@@ -74,9 +67,7 @@ function formatDeliveries(deliveries) {
         } ${currency}`;
 
       case "flat_fee":
-        return `${country} : forfait de ${
-          delivery.fee ?? "—"
-        } ${currency}`;
+        return `${country} : forfait de ${delivery.fee ?? "—"} ${currency}`;
 
       case "none":
         return `${country} : aucune livraison proposée`;
@@ -95,50 +86,85 @@ export default function ActivitiesScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
 
-  const loadActivities = useCallback(async (isRefresh = false) => {
-    if (!token) {
-      setLoading(false);
-      Alert.alert(
-        "Connexion nécessaire",
-        "Reconnecte-toi pour consulter tes activités."
-      );
-      return;
+  // État de la boîte de dialogue personnalisée
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
+  const showDialog = (title, message, buttons = []) => {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  };
+
+  const closeDialog = () => {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  };
+
+  const handleDialogButton = (button) => {
+    closeDialog();
+
+    if (button.onPress) {
+      setTimeout(() => button.onPress(), 150);
     }
+  };
 
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const response = await fetch(`${API_URL}/activities/mine`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Impossible de récupérer tes activités."
+  const loadActivities = useCallback(
+    async (isRefresh = false) => {
+      if (!token) {
+        setLoading(false);
+        showDialog(
+          "Connexion nécessaire",
+          "Reconnecte-toi pour consulter tes activités.",
         );
+        return;
       }
 
-      setActivities(data.activities || []);
-    } catch (error) {
-      Alert.alert("Erreur", error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [token]);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/activities/mine`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Impossible de récupérer tes activités.",
+          );
+        }
+
+        setActivities(data.activities || []);
+      } catch (error) {
+        showDialog("Erreur", error.message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [token],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadActivities();
-    }, [loadActivities])
+    }, [loadActivities]),
   );
 
   function addActivity() {
@@ -174,11 +200,7 @@ export default function ActivitiesScreen({ route, navigation }) {
       <View style={styles.activityCard}>
         <View style={styles.cardHeader}>
           <View style={styles.activityIcon}>
-            <Ionicons
-              name="storefront-outline"
-              size={25}
-              color="#003300"
-            />
+            <Ionicons name="storefront-outline" size={25} color="#003300" />
           </View>
 
           <View style={styles.cardTitleContainer}>
@@ -193,16 +215,9 @@ export default function ActivitiesScreen({ route, navigation }) {
         </View>
 
         <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: status.background },
-          ]}
+          style={[styles.statusBadge, { backgroundColor: status.background }]}
         >
-          <Ionicons
-            name={status.icon}
-            size={17}
-            color={status.color}
-          />
+          <Ionicons name={status.icon} size={17} color={status.color} />
 
           <Text style={[styles.statusText, { color: status.color }]}>
             {status.label}
@@ -227,9 +242,7 @@ export default function ActivitiesScreen({ route, navigation }) {
 
         {!!item.frenchDepartments?.length && (
           <>
-            <Text style={styles.detailLabel}>
-              Départements français
-            </Text>
+            <Text style={styles.detailLabel}>Départements français</Text>
             <Text style={styles.detailValue}>
               {item.frenchDepartments.join(", ")}
             </Text>
@@ -238,9 +251,7 @@ export default function ActivitiesScreen({ route, navigation }) {
 
         {!!item.madagascarCities?.length && (
           <>
-            <Text style={styles.detailLabel}>
-              Villes à Madagascar
-            </Text>
+            <Text style={styles.detailLabel}>Villes à Madagascar</Text>
             <Text style={styles.detailValue}>
               {item.madagascarCities.join(", ")}
             </Text>
@@ -272,9 +283,7 @@ export default function ActivitiesScreen({ route, navigation }) {
           onPress={() => setSelectedActivity(item)}
           activeOpacity={0.8}
         >
-          <Text style={styles.detailButtonText}>
-            Voir la fiche complète
-          </Text>
+          <Text style={styles.detailButtonText}>Voir la fiche complète</Text>
 
           <Ionicons
             name="arrow-forward-circle-outline"
@@ -320,15 +329,9 @@ export default function ActivitiesScreen({ route, navigation }) {
               onPress={addActivity}
               activeOpacity={0.8}
             >
-              <Ionicons
-                name="add-circle-outline"
-                size={22}
-                color="#003300"
-              />
+              <Ionicons name="add-circle-outline" size={22} color="#003300" />
 
-              <Text style={styles.addButtonText}>
-                Ajouter une activité
-              </Text>
+              <Text style={styles.addButtonText}>Ajouter une activité</Text>
             </TouchableOpacity>
 
             <Text style={styles.sectionTitle}>
@@ -339,18 +342,15 @@ export default function ActivitiesScreen({ route, navigation }) {
         ListEmptyComponent={
           loading ? null : (
             <View style={styles.emptyContainer}>
-              <Ionicons
-                name="storefront-outline"
-                size={55}
-                color="#CDAB82"
-              />
+              <Ionicons name="storefront-outline" size={55} color="#CDAB82" />
 
               <Text style={styles.emptyTitle}>
                 Aucune activité pour le moment
               </Text>
 
               <Text style={styles.emptyText}>
-                Ajoute ta première activité pour présenter tes services sur ZOMA.
+                Ajoute ta première activité pour présenter tes services sur
+                ZOMA.
               </Text>
             </View>
           )
@@ -376,18 +376,10 @@ export default function ActivitiesScreen({ route, navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Fiche de mon activité
-              </Text>
+              <Text style={styles.modalTitle}>Fiche de mon activité</Text>
 
-              <TouchableOpacity
-                onPress={() => setSelectedActivity(null)}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={29}
-                  color="#003300"
-                />
+              <TouchableOpacity onPress={() => setSelectedActivity(null)}>
+                <Ionicons name="close-circle" size={29} color="#003300" />
               </TouchableOpacity>
             </View>
 
@@ -400,17 +392,13 @@ export default function ActivitiesScreen({ route, navigation }) {
                   showsVerticalScrollIndicator={false}
                   renderItem={({ item }) => (
                     <View>
-                      <Text style={styles.modalActivityName}>
-                        {item.name}
-                      </Text>
+                      <Text style={styles.modalActivityName}>{item.name}</Text>
 
                       <Text style={styles.modalSpecialty}>
                         {item.specialty}
                       </Text>
 
-                      <Text style={styles.modalLabel}>
-                        Pays d'intervention
-                      </Text>
+                      <Text style={styles.modalLabel}>Pays d'intervention</Text>
 
                       <Text style={styles.modalValue}>
                         {item.countries?.join(", ") || "Non renseignés"}
@@ -460,7 +448,7 @@ export default function ActivitiesScreen({ route, navigation }) {
                               .map((direction) =>
                                 direction === "france_to_madagascar"
                                   ? "France vers Madagascar"
-                                  : "Madagascar vers France"
+                                  : "Madagascar vers France",
                               )
                               .join("\n")}
                           </Text>
@@ -471,16 +459,14 @@ export default function ActivitiesScreen({ route, navigation }) {
                         Conditions de livraison
                       </Text>
 
-                      {formatDeliveries(
-                        item.deliveries || item.delivery
-                      ).map((condition, index) => (
-                        <Text
-                          key={index}
-                          style={styles.modalValue}
-                        >
-                          {"• "}{condition}
-                        </Text>
-                      ))}
+                      {formatDeliveries(item.deliveries || item.delivery).map(
+                        (condition, index) => (
+                          <Text key={index} style={styles.modalValue}>
+                            {"• "}
+                            {condition}
+                          </Text>
+                        ),
+                      )}
 
                       <Text style={styles.modalLabel}>Statut</Text>
 
@@ -488,9 +474,7 @@ export default function ActivitiesScreen({ route, navigation }) {
                         {STATUS[item.status]?.label || "Statut inconnu"}
                       </Text>
 
-                      <Text style={styles.modalLabel}>
-                        Date de création
-                      </Text>
+                      <Text style={styles.modalLabel}>Date de création</Text>
 
                       <Text style={styles.modalValue}>
                         {item.createdAt
@@ -508,11 +492,7 @@ export default function ActivitiesScreen({ route, navigation }) {
                     onPress={() => editActivity(selectedActivity)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons
-                      name="create-outline"
-                      size={21}
-                      color="#003300"
-                    />
+                    <Ionicons name="create-outline" size={21} color="#003300" />
 
                     <Text style={styles.editButtonText}>
                       Modifier cette activité
@@ -524,13 +504,54 @@ export default function ActivitiesScreen({ route, navigation }) {
                     onPress={() => setSelectedActivity(null)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.closeButtonText}>
-                      Fermer
-                    </Text>
+                    <Text style={styles.closeButtonText}>Fermer</Text>
                   </TouchableOpacity>
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* BOÎTE DE DIALOGUE PERSONNALISÉE */}
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={styles.dialogContent}>
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogActions}>
+              {dialog.buttons.map((button, index) => (
+                <TouchableOpacity
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "primary" && styles.dialogPrimaryButton,
+                    button.style === "secondary" &&
+                      styles.dialogSecondaryButton,
+                    button.style === "danger" && styles.dialogDangerButton,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary" &&
+                        styles.dialogSecondaryButtonText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       </Modal>
@@ -792,5 +813,67 @@ const styles = StyleSheet.create({
     color: "#003300",
     fontSize: RFPercentage(1.9),
     fontWeight: "bold",
+  },
+
+  // Boîte de dialogue
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  dialogContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 22,
+    elevation: 8,
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 19,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#333333",
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 22,
+  },
+  dialogActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  dialogButton: {
+    minWidth: 90,
+    minHeight: 42,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#003300",
+  },
+  dialogPrimaryButton: {
+    backgroundColor: "#003300",
+  },
+  dialogSecondaryButton: {
+    backgroundColor: "#EEEEEE",
+  },
+  dialogDangerButton: {
+    backgroundColor: "#CC3333",
+  },
+  dialogButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  dialogSecondaryButtonText: {
+    color: "#333333",
   },
 });

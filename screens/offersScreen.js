@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -7,9 +6,10 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   StyleSheet,
   Platform,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -29,12 +29,7 @@ const EMPTY_OFFER = {
   images: [],
 };
 
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-];
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export default function OffersScreen({ route }) {
   const {
@@ -50,43 +45,66 @@ export default function OffersScreen({ route }) {
   const [activities, setActivities] = useState(initialActivities);
 
   const [selectedActivityId, setSelectedActivityId] = useState(
-    initialActivityId ||
-      activityIds[0] ||
-      initialActivities[0]?._id ||
-      ""
+    initialActivityId || activityIds[0] || initialActivities[0]?._id || "",
   );
 
   const [editingProductId, setEditingProductId] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    buttons: [],
+  });
+
+  function showDialog(title, message, buttons = []) {
+    setDialog({
+      visible: true,
+      title,
+      message,
+      buttons: buttons.length ? buttons : [{ text: "OK", style: "primary" }],
+    });
+  }
+
+  function closeDialog() {
+    setDialog((previous) => ({
+      ...previous,
+      visible: false,
+    }));
+  }
+
+  function handleDialogButton(button) {
+    closeDialog();
+
+    if (button.onPress) {
+      setTimeout(() => button.onPress(), 150);
+    }
+  }
+
   const loadOffers = useCallback(async () => {
     if (!userId) return;
 
     try {
-      const response = await fetch(
-        `${API_URL}/products/user/${userId}`,
-        {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}/products/user/${userId}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+      });
 
       const responseText = await response.text();
 
       if (!response.ok) {
-        throw new Error(
-          `Erreur HTTP ${response.status} : ${responseText}`
-        );
+        throw new Error(`Erreur HTTP ${response.status} : ${responseText}`);
       }
 
       const data = JSON.parse(responseText);
       setSavedOffers(data.products || []);
     } catch (error) {
       console.log("Erreur de chargement des produits :", error);
-      Alert.alert("Chargement des produits", error.message);
+      showDialog("Chargement des produits", error.message);
     }
   }, [userId, token]);
 
@@ -94,14 +112,11 @@ export default function OffersScreen({ route }) {
     if (!userId || !token) return;
 
     try {
-      const response = await fetch(
-        `${API_URL}/activities/mine`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}/activities/mine`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const responseText = await response.text();
       let data;
@@ -110,27 +125,25 @@ export default function OffersScreen({ route }) {
         data = JSON.parse(responseText);
       } catch {
         throw new Error(
-          `Réponse non JSON du serveur (HTTP ${response.status}).`
+          `Réponse non JSON du serveur (HTTP ${response.status}).`,
         );
       }
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur de chargement des activités."
-        );
+        throw new Error(data.message || "Erreur de chargement des activités.");
       }
 
       const loadedActivities = data.activities || [];
       setActivities(loadedActivities);
 
       if (loadedActivities.length > 0) {
-        setSelectedActivityId((currentId) =>
-          currentId || loadedActivities[0]._id
+        setSelectedActivityId(
+          (currentId) => currentId || loadedActivities[0]._id,
         );
       }
     } catch (error) {
       console.log("Erreur de chargement des activités :", error);
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     }
   }, [userId, token]);
 
@@ -138,14 +151,14 @@ export default function OffersScreen({ route }) {
     useCallback(() => {
       loadOffers();
       loadActivities();
-    }, [loadOffers, loadActivities])
+    }, [loadOffers, loadActivities]),
   );
 
   function updateOffer(index, field, value) {
     setOffers((currentOffers) =>
       currentOffers.map((offer, i) =>
-        i === index ? { ...offer, [field]: value } : offer
-      )
+        i === index ? { ...offer, [field]: value } : offer,
+      ),
     );
   }
 
@@ -157,9 +170,7 @@ export default function OffersScreen({ route }) {
   }
 
   function removeOffer(index) {
-    setOffers((currentOffers) =>
-      currentOffers.filter((_, i) => i !== index)
-    );
+    setOffers((currentOffers) => currentOffers.filter((_, i) => i !== index));
   }
 
   // Sélection des photos
@@ -168,9 +179,9 @@ export default function OffersScreen({ route }) {
     const remaining = MAX_IMAGES - currentImages.length;
 
     if (remaining <= 0) {
-      Alert.alert(
+      showDialog(
         "Limite atteinte",
-        "Tu peux ajouter au maximum 5 photos par produit."
+        "Tu peux ajouter au maximum 5 photos par produit.",
       );
       return;
     }
@@ -180,9 +191,9 @@ export default function OffersScreen({ route }) {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert(
+        showDialog(
           "Autorisation nécessaire",
-          "Autorise l'accès à tes photos pour sélectionner des images."
+          "Autorise l'accès à tes photos pour sélectionner des images.",
         );
         return;
       }
@@ -200,13 +211,10 @@ export default function OffersScreen({ route }) {
       const validAssets = [];
 
       for (const asset of selectedAssets) {
-        if (
-          asset.fileSize != null &&
-          asset.fileSize > MAX_SIZE
-        ) {
-          Alert.alert(
+        if (asset.fileSize != null && asset.fileSize > MAX_SIZE) {
+          showDialog(
             "Photo trop volumineuse",
-            "Chaque photo doit peser 5 Mo maximum."
+            "Chaque photo doit peser 5 Mo maximum.",
           );
           continue;
         }
@@ -214,9 +222,9 @@ export default function OffersScreen({ route }) {
         const type = asset.mimeType?.toLowerCase();
 
         if (type && !ALLOWED_TYPES.includes(type)) {
-          Alert.alert(
+          showDialog(
             "Format non accepté",
-            "Choisis une photo JPG, JPEG, PNG, WebP ou AVIF."
+            "Choisis une photo JPG, JPEG, PNG, WebP ou AVIF.",
           );
           continue;
         }
@@ -244,11 +252,11 @@ export default function OffersScreen({ route }) {
                   })),
                 ],
               }
-            : offer
-        )
+            : offer,
+        ),
       );
     } catch (error) {
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     }
   }
 
@@ -259,12 +267,10 @@ export default function OffersScreen({ route }) {
         i === offerIndex
           ? {
               ...offer,
-              images: offer.images.filter(
-                (_, j) => j !== imageIndex
-              ),
+              images: offer.images.filter((_, j) => j !== imageIndex),
             }
-          : offer
-      )
+          : offer,
+      ),
     );
   }
 
@@ -276,7 +282,7 @@ export default function OffersScreen({ route }) {
       {
         compress: 0.75,
         format: ImageManipulator.SaveFormat.JPEG,
-      }
+      },
     );
 
     const formData = new FormData();
@@ -290,11 +296,9 @@ export default function OffersScreen({ route }) {
         return res.blob();
       });
 
-      const jpegFile = new File(
-        [blob],
-        `zoma_${Date.now()}.jpg`,
-        { type: "image/jpeg" }
-      );
+      const jpegFile = new File([blob], `zoma_${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
 
       formData.append("file", jpegFile);
     } else {
@@ -313,16 +317,12 @@ export default function OffersScreen({ route }) {
       {
         method: "POST",
         body: formData,
-      }
+      },
     );
 
     const responseText = await response.text();
 
-    console.log(
-      "Réponse Cloudinary :",
-      response.status,
-      responseText
-    );
+    console.log("Réponse Cloudinary :", response.status, responseText);
 
     let cloudinaryData;
 
@@ -334,8 +334,7 @@ export default function OffersScreen({ route }) {
 
     if (!response.ok || !cloudinaryData.secure_url) {
       throw new Error(
-        cloudinaryData.error?.message ||
-          "Erreur lors de l'envoi d'une photo."
+        cloudinaryData.error?.message || "Erreur lors de l'envoi d'une photo.",
       );
     }
 
@@ -359,8 +358,7 @@ export default function OffersScreen({ route }) {
   }
 
   function editProduct(product) {
-    const productActivityId =
-      product.activityId?._id || product.activityId;
+    const productActivityId = product.activityId?._id || product.activityId;
 
     setSelectedActivityId(productActivityId || "");
     setEditingProductId(product._id);
@@ -380,9 +378,9 @@ export default function OffersScreen({ route }) {
       },
     ]);
 
-    Alert.alert(
+    showDialog(
       "Modification",
-      "Modifie les informations du produit dans le formulaire situé plus bas."
+      "Modifie les informations du produit dans le formulaire situé plus bas.",
     );
   }
 
@@ -392,14 +390,14 @@ export default function OffersScreen({ route }) {
   }
 
   function deleteProduct(product) {
-    Alert.alert(
+    showDialog(
       "Supprimer le produit",
       `Veux-tu vraiment supprimer « ${product.name} » ? Cette action est définitive.`,
       [
-        { text: "Annuler", style: "cancel" },
+        { text: "Annuler", style: "secondary" },
         {
           text: "Supprimer",
-          style: "destructive",
+          style: "danger",
           onPress: async () => {
             try {
               const response = await fetch(
@@ -408,19 +406,17 @@ export default function OffersScreen({ route }) {
                   method: "DELETE",
                   headers: {
                     "Content-Type": "application/json",
-                    ...(token
-                      ? { Authorization: `Bearer ${token}` }
-                      : {}),
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                   },
                   body: JSON.stringify({ userId }),
-                }
+                },
               );
 
               const data = await response.json();
 
               if (!response.ok) {
                 throw new Error(
-                  data.message || "Impossible de supprimer ce produit."
+                  data.message || "Impossible de supprimer ce produit.",
                 );
               }
 
@@ -429,21 +425,21 @@ export default function OffersScreen({ route }) {
               }
 
               await loadOffers();
-              Alert.alert("Succès", "Le produit a bien été supprimé.");
+              showDialog("Succès", "Le produit a bien été supprimé.");
             } catch (error) {
-              Alert.alert("Erreur", error.message);
+              showDialog("Erreur", error.message);
             }
           },
         },
-      ]
+      ],
     );
   }
 
   async function validateOffers() {
     if (!userId || !selectedActivityId) {
-      Alert.alert(
+      showDialog(
         "Information manquante",
-        "Sélectionne une activité avant d'enregistrer tes produits."
+        "Sélectionne une activité avant d'enregistrer tes produits.",
       );
       return;
     }
@@ -454,21 +450,21 @@ export default function OffersScreen({ route }) {
         offer.description.trim() !== "" &&
         offer.price !== "" &&
         !Number.isNaN(Number(offer.price)) &&
-        Number(offer.price) >= 0
+        Number(offer.price) >= 0,
     );
 
     if (editingProductId && validOffers.length !== 1) {
-      Alert.alert(
+      showDialog(
         "Information manquante",
-        "Vérifie le nom, la description et le prix du produit."
+        "Vérifie le nom, la description et le prix du produit.",
       );
       return;
     }
 
     if (validOffers.length === 0) {
-      Alert.alert(
+      showDialog(
         "Produits manquants",
-        "Ajoute au moins un produit avec un nom, une description et un prix valide."
+        "Ajoute au moins un produit avec un nom, une description et un prix valide.",
       );
       return;
     }
@@ -483,26 +479,21 @@ export default function OffersScreen({ route }) {
         const imageUrls = await getImageUrls(offer.images);
         console.log("URLS PHOTOS À ENREGISTRER :", imageUrls);
 
-        response = await fetch(
-          `${API_URL}/products/${editingProductId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token
-                ? { Authorization: `Bearer ${token}` }
-                : {}),
-            },
-            body: JSON.stringify({
-              userId,
-              name: offer.name.trim(),
-              description: offer.description.trim(),
-              price: Number(offer.price),
-              currency: offer.currency,
-              images: imageUrls,
-            }),
-          }
-        );
+        response = await fetch(`${API_URL}/products/${editingProductId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            userId,
+            name: offer.name.trim(),
+            description: offer.description.trim(),
+            price: Number(offer.price),
+            currency: offer.currency,
+            images: imageUrls,
+          }),
+        });
       } else {
         const products = [];
 
@@ -522,9 +513,7 @@ export default function OffersScreen({ route }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(token
-              ? { Authorization: `Bearer ${token}` }
-              : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             activityId: selectedActivityId,
@@ -538,7 +527,7 @@ export default function OffersScreen({ route }) {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Impossible d'enregistrer les produits."
+          data.message || "Impossible d'enregistrer les produits.",
         );
       }
 
@@ -549,80 +538,75 @@ export default function OffersScreen({ route }) {
 
       await loadOffers();
 
-      Alert.alert(
+      showDialog(
         "Succès",
         wasEditing
           ? "Ton produit a bien été modifié."
-          : "Tes produits ont bien été enregistrés."
+          : "Tes produits ont bien été enregistrés.",
       );
     } catch (error) {
       console.log("Erreur enregistrement produit :", error);
-      Alert.alert("Erreur", error.message);
+      showDialog("Erreur", error.message);
     } finally {
       setUploading(false);
     }
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Image
-        source={require("../assets/logo_paysage.png")}
-        style={styles.logo}
-        resizeMode="contain"
-      />
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Image
+          source={require("../assets/logo_paysage.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
-      <Text style={styles.title}>Mes offres</Text>
+        <Text style={styles.title}>Mes offres</Text>
 
-      <Text style={styles.label}>Sélectionner une activité</Text>
+        <Text style={styles.label}>Sélectionner une activité</Text>
 
-      {activities.length === 0 ? (
-        <Text style={styles.info}>
-          Aucune activité trouvée. Vérifie le chargement de tes activités.
-        </Text>
-      ) : (
-        activities.map((activity) => (
-          <TouchableOpacity
-            key={activity._id}
-            style={[
-              styles.activityButton,
-              selectedActivityId === activity._id &&
-                styles.activitySelected,
-            ]}
-            onPress={() => setSelectedActivityId(activity._id)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.activityName}>{activity.name}</Text>
-            <Text style={styles.status}>Statut : {activity.status}</Text>
+        {activities.length === 0 ? (
+          <Text style={styles.info}>
+            Aucune activité trouvée. Vérifie le chargement de tes activités.
+          </Text>
+        ) : (
+          activities.map((activity) => (
+            <TouchableOpacity
+              key={activity._id}
+              style={[
+                styles.activityButton,
+                selectedActivityId === activity._id && styles.activitySelected,
+              ]}
+              onPress={() => setSelectedActivityId(activity._id)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.activityName}>{activity.name}</Text>
+              <Text style={styles.status}>Statut : {activity.status}</Text>
 
-            {selectedActivityId === activity._id && (
-              <Text style={styles.selectedText}>
-                Activité sélectionnée
-              </Text>
-            )}
-          </TouchableOpacity>
-        ))
-      )}
+              {selectedActivityId === activity._id && (
+                <Text style={styles.selectedText}>Activité sélectionnée</Text>
+              )}
+            </TouchableOpacity>
+          ))
+        )}
 
-      <Text style={styles.sectionTitle}>
-        Mes produits enregistrés
-      </Text>
+        <Text style={styles.sectionTitle}>Mes produits enregistrés</Text>
 
-      {savedOffers.length === 0 ? (
-        <Text style={styles.info}>
-          Aucun produit enregistré pour le moment.
-        </Text>
-      ) : (
-        savedOffers.map((product) => (
-          <View key={product._id} style={styles.savedCard}>
-            <Text style={styles.productName}>{product.name}</Text>
+        {savedOffers.length === 0 ? (
+          <Text style={styles.info}>
+            Aucun produit enregistré pour le moment.
+          </Text>
+        ) : (
+          savedOffers.map((product) => (
+            <View key={product._id} style={styles.savedCard}>
+              <Text style={styles.productName}>{product.name}</Text>
 
-            {Array.isArray(product.images) &&
-              product.images.length > 0 && (
+              {Array.isArray(product.images) && product.images.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {product.images.map((uri, index) => (
                     <Image
@@ -634,203 +618,245 @@ export default function OffersScreen({ route }) {
                 </ScrollView>
               )}
 
-            <Text style={styles.productDescription}>
-              {product.description}
-            </Text>
-
-            <Text style={styles.price}>
-              {product.price} {product.currency}
-            </Text>
-
-            {product.activityId?.name && (
-              <Text style={styles.savedActivity}>
-                Activité : {product.activityId.name}
+              <Text style={styles.productDescription}>
+                {product.description}
               </Text>
-            )}
 
-            <View style={styles.productActions}>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => editProduct(product)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.editButtonText}>Modifier</Text>
-              </TouchableOpacity>
+              <Text style={styles.price}>
+                {product.price} {product.currency}
+              </Text>
 
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => deleteProduct(product)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.deleteButtonText}>Supprimer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))
-      )}
-
-      <Text style={styles.sectionTitle}>
-        {editingProductId ? "Modifier le produit" : "Ajouter des produits"}
-      </Text>
-
-      {editingProductId && (
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={cancelEdit}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelButtonText}>
-            Annuler la modification
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {offers.map((offer, index) => (
-        <View key={index} style={styles.offerCard}>
-          <Text style={styles.label}>Nom du produit</Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Nom du produit"
-            placeholderTextColor="#777777"
-            value={offer.name}
-            onChangeText={(value) => updateOffer(index, "name", value)}
-          />
-
-          <Text style={styles.label}>Description</Text>
-
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            placeholder="Description du produit"
-            placeholderTextColor="#777777"
-            value={offer.description}
-            onChangeText={(value) =>
-              updateOffer(index, "description", value)
-            }
-            multiline
-          />
-
-          <Text style={styles.label}>Prix</Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Prix"
-            placeholderTextColor="#777777"
-            value={offer.price}
-            keyboardType="decimal-pad"
-            onChangeText={(value) => updateOffer(index, "price", value)}
-          />
-
-          <Text style={styles.label}>Devise</Text>
-
-          <View style={styles.currencyRow}>
-            {["EUR", "MGA"].map((currency) => (
-              <TouchableOpacity
-                key={currency}
-                style={[
-                  styles.currencyButton,
-                  offer.currency === currency && styles.currencySelected,
-                ]}
-                onPress={() => updateOffer(index, "currency", currency)}
-              >
-                <Text
-                  style={[
-                    styles.currencyText,
-                    offer.currency === currency &&
-                      styles.currencyTextSelected,
-                  ]}
-                >
-                  {currency === "EUR" ? "EUR (€)" : "MGA (Ar)"}
+              {product.activityId?.name && (
+                <Text style={styles.savedActivity}>
+                  Activité : {product.activityId.name}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+              )}
 
-          <Text style={styles.label}>Photos du produit (facultatif)</Text>
+              <View style={styles.productActions}>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => editProduct(product)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.editButtonText}>Modifier</Text>
+                </TouchableOpacity>
 
-          <Text style={styles.photoInfo}>
-            Jusqu'à 5 photos. JPG, JPEG, PNG ou WebP. 5 Mo maximum par photo.
-            Les photos seront redimensionnées et compressées avant l'envoi.
-          </Text>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => deleteProduct(product)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.deleteButtonText}>Supprimer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
 
+        <Text style={styles.sectionTitle}>
+          {editingProductId ? "Modifier le produit" : "Ajouter des produits"}
+        </Text>
+
+        {editingProductId && (
           <TouchableOpacity
-            style={styles.photoButton}
-            onPress={() => pickImages(index)}
+            style={styles.cancelButton}
+            onPress={cancelEdit}
             activeOpacity={0.8}
           >
-            <Text style={styles.photoButtonText}>
-              + Ajouter des photos ({offer.images?.length || 0}/5)
-            </Text>
+            <Text style={styles.cancelButtonText}>Annuler la modification</Text>
           </TouchableOpacity>
+        )}
 
-          {offer.images?.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {offer.images.map((image, imageIndex) => (
-                <View
-                  key={`${index}-${imageIndex}`}
-                  style={styles.previewContainer}
+        {offers.map((offer, index) => (
+          <View key={index} style={styles.offerCard}>
+            <Text style={styles.label}>Nom du produit</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Nom du produit"
+              placeholderTextColor="#777777"
+              value={offer.name}
+              onChangeText={(value) => updateOffer(index, "name", value)}
+            />
+
+            <Text style={styles.label}>Description</Text>
+
+            <TextInput
+              style={[styles.input, styles.descriptionInput]}
+              placeholder="Description du produit"
+              placeholderTextColor="#777777"
+              value={offer.description}
+              onChangeText={(value) => updateOffer(index, "description", value)}
+              multiline
+            />
+
+            <Text style={styles.label}>Prix</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Prix"
+              placeholderTextColor="#777777"
+              value={offer.price}
+              keyboardType="decimal-pad"
+              onChangeText={(value) => updateOffer(index, "price", value)}
+            />
+
+            <Text style={styles.label}>Devise</Text>
+
+            <View style={styles.currencyRow}>
+              {["EUR", "MGA"].map((currency) => (
+                <TouchableOpacity
+                  key={currency}
+                  style={[
+                    styles.currencyButton,
+                    offer.currency === currency && styles.currencySelected,
+                  ]}
+                  onPress={() => updateOffer(index, "currency", currency)}
                 >
-                  <Image
-                    source={{ uri: image.uri }}
-                    style={styles.previewImage}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.removeImageButton}
-                    onPress={() => removeImage(index, imageIndex)}
+                  <Text
+                    style={[
+                      styles.currencyText,
+                      offer.currency === currency &&
+                        styles.currencyTextSelected,
+                    ]}
                   >
-                    <Text style={styles.removeImageText}>×</Text>
-                  </TouchableOpacity>
-                </View>
+                    {currency === "EUR" ? "EUR (€)" : "MGA (Ar)"}
+                  </Text>
+                </TouchableOpacity>
               ))}
-            </ScrollView>
-          )}
+            </View>
 
-          {!editingProductId && offers.length > 1 && (
+            <Text style={styles.label}>Photos du produit (facultatif)</Text>
+
+            <Text style={styles.photoInfo}>
+              Jusqu'à 5 photos. JPG, JPEG, PNG ou WebP. 5 Mo maximum par photo.
+              Les photos seront redimensionnées et compressées avant l'envoi.
+            </Text>
+
             <TouchableOpacity
-              onPress={() => removeOffer(index)}
+              style={styles.photoButton}
+              onPress={() => pickImages(index)}
               activeOpacity={0.8}
             >
-              <Text style={styles.deleteText}>Supprimer cette ligne</Text>
+              <Text style={styles.photoButtonText}>
+                + Ajouter des photos ({offer.images?.length || 0}/5)
+              </Text>
             </TouchableOpacity>
-          )}
-        </View>
-      ))}
 
-      {!editingProductId && (
+            {offer.images?.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {offer.images.map((image, imageIndex) => (
+                  <View
+                    key={`${index}-${imageIndex}`}
+                    style={styles.previewContainer}
+                  >
+                    <Image
+                      source={{ uri: image.uri }}
+                      style={styles.previewImage}
+                    />
+
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => removeImage(index, imageIndex)}
+                    >
+                      <Text style={styles.removeImageText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            {!editingProductId && offers.length > 1 && (
+              <TouchableOpacity
+                onPress={() => removeOffer(index)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.deleteText}>Supprimer cette ligne</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+
+        {!editingProductId && (
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={addOffer}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.secondaryButtonText}>
+              + Ajouter un autre produit
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={addOffer}
+          style={[styles.primaryButton, uploading && styles.disabledButton]}
+          onPress={validateOffers}
+          disabled={uploading}
           activeOpacity={0.8}
         >
-          <Text style={styles.secondaryButtonText}>
-            + Ajouter un autre produit
+          <Text style={styles.buttonText}>
+            {uploading
+              ? "Envoi des photos et enregistrement..."
+              : editingProductId
+                ? "Enregistrer les modifications"
+                : "Enregistrer mes produits"}
           </Text>
         </TouchableOpacity>
-      )}
+      </ScrollView>
 
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          uploading && styles.disabledButton,
-        ]}
-        onPress={validateOffers}
-        disabled={uploading}
-        activeOpacity={0.8}
+      <Modal
+        visible={dialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDialog}
       >
-        <Text style={styles.buttonText}>
-          {uploading
-            ? "Envoi des photos et enregistrement..."
-            : editingProductId
-              ? "Enregistrer les modifications"
-              : "Enregistrer mes produits"}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <Pressable style={styles.modalOverlay} onPress={closeDialog}>
+          <Pressable
+            style={styles.dialogBox}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+
+            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+
+            <View style={styles.dialogButtons}>
+              {dialog.buttons.map((button, index) => (
+                <TouchableOpacity
+                  key={`${button.text}-${index}`}
+                  style={[
+                    styles.dialogButton,
+                    button.style === "secondary" &&
+                      styles.dialogButtonSecondary,
+                    button.style === "danger" && styles.dialogButtonDanger,
+                  ]}
+                  onPress={() => handleDialogButton(button)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.dialogButtonText,
+                      button.style === "secondary" &&
+                        styles.dialogButtonSecondaryText,
+                    ]}
+                  >
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#003300",
+  },
   container: {
     flex: 1,
     backgroundColor: "#003300",
@@ -1100,5 +1126,64 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
     marginRight: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  dialogBox: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 22,
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+  },
+  dialogTitle: {
+    color: "#003300",
+    fontSize: 19,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  dialogMessage: {
+    color: "#444444",
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  dialogButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+  dialogButton: {
+    flex: 1,
+    backgroundColor: "#003300",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+  dialogButtonSecondary: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CDAB82",
+  },
+  dialogButtonDanger: {
+    backgroundColor: "#C62828",
+  },
+  dialogButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  dialogButtonSecondaryText: {
+    color: "#003300",
   },
 });

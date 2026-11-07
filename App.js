@@ -1,4 +1,3 @@
-
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
@@ -79,7 +78,7 @@ function ProspectSearchStack({ route }) {
         component={ProductsScreen}
         options={{ title: "Nos offres" }}
       />
-       <SearchStack.Screen
+      <SearchStack.Screen
         name="Chat"
         component={ChatScreen}
         options={({ route }) => ({
@@ -97,10 +96,7 @@ function MerchantTabs({ route }) {
 
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="MerchantTabsHome"
-        options={{ headerShown: false }}
-      >
+      <Stack.Screen name="MerchantTabsHome" options={{ headerShown: false }}>
         {() => (
           <Tab.Navigator
             screenOptions={{
@@ -123,7 +119,11 @@ function MerchantTabs({ route }) {
               options={{
                 title: "Mon compte",
                 tabBarIcon: ({ color, size }) => (
-                  <Ionicons name="person-circle-outline" size={size} color={color} />
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={size}
+                    color={color}
+                  />
                 ),
               }}
             />
@@ -135,7 +135,11 @@ function MerchantTabs({ route }) {
               options={{
                 title: "Activités",
                 tabBarIcon: ({ color, size }) => (
-                  <Ionicons name="storefront-outline" size={size} color={color} />
+                  <Ionicons
+                    name="storefront-outline"
+                    size={size}
+                    color={color}
+                  />
                 ),
               }}
             />
@@ -171,7 +175,11 @@ function MerchantTabs({ route }) {
               options={{
                 title: "Messages",
                 tabBarIcon: ({ color, size }) => (
-                  <Ionicons name="chatbubbles-outline" size={size} color={color} />
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={size}
+                    color={color}
+                  />
                 ),
               }}
             />
@@ -189,7 +197,6 @@ function MerchantTabs({ route }) {
     </Stack.Navigator>
   );
 }
-
 
 // Navigation Prospect
 function ProspectTabs({ route }) {
@@ -221,13 +228,21 @@ function ProspectTabs({ route }) {
           ),
         }}
       />
-
       <Tab.Screen
         name="ProspectSearch"
         component={ProspectSearchStack}
         initialParams={accountParams}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate("ProspectSearch", {
+              screen: "SearchHome",
+              params: accountParams,
+            });
+          },
+        })}
         options={{
           title: "Recherche",
+          popToTopOnBlur: true,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="search-outline" size={size} color={color} />
           ),
@@ -277,15 +292,10 @@ function ProspectTabs({ route }) {
         options={{
           title: "Messages",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="chatbubbles-outline"
-              size={size}
-              color={color}
-            />
+            <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
         }}
       />
-
     </Tab.Navigator>
   );
 }

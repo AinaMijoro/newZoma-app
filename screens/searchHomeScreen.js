@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   View,
@@ -22,8 +21,8 @@ const categories = [
     description: "France vers Madagascar, Madagascar vers la France",
   },
   {
-    title: "SERASERA",
-    description: "Les bonnes affaires à saisir",
+    title: "BONNES AFFAIRES",
+    description: "Serasera: les bonnes affaires à saisir",
   },
   {
     title: "MAINS D’ŒUVRE",
@@ -60,16 +59,10 @@ export default function SearchHomeScreen({ navigation, route }) {
             placeholder="Que recherchez-vous ?"
             placeholderTextColor="#888888"
           />
-          <Ionicons
-            name="search-outline"
-            size={22}
-            color="#003300"
-          />
+          <Ionicons name="search-outline" size={22} color="#003300" />
         </View>
 
-        <Text style={styles.sectionTitle}>
-          Les plus recherchés
-        </Text>
+        <Text style={styles.sectionTitle}>Les plus recherchés</Text>
 
         <View style={styles.categoryList}>
           {categories.map((category, index) => (
@@ -85,9 +78,7 @@ export default function SearchHomeScreen({ navigation, route }) {
               }
             >
               <View style={styles.categoryText}>
-                <Text style={styles.categoryTitle}>
-                  {category.title}
-                </Text>
+                <Text style={styles.categoryTitle}>{category.title}</Text>
 
                 <Text style={styles.categoryDescription}>
                   {category.description}
@@ -95,11 +86,7 @@ export default function SearchHomeScreen({ navigation, route }) {
               </View>
 
               <Ionicons
-                name={
-                  index === 0
-                    ? "hand-left-outline"
-                    : "chevron-forward"
-                }
+                name={index === 0 ? "hand-left-outline" : "chevron-forward"}
                 size={20}
                 color="#003300"
                 style={styles.categoryIcon}
