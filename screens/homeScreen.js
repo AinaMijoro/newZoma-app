@@ -23,18 +23,18 @@ export default function HomeScreen({ navigation }) {
       {/* Tout le contenu sous le logo */}
       <View style={styles.mainContent}>
         <Text style={styles.text1}>
-  Bienvenue sur Zoma
-</Text>
+          Bienvenue sur Zoma
+        </Text>
 
-<Text style={styles.tagline}>
-  Découvrez, partagez et faites grandir
-  les talents et les bonnes affaires
-  de la communauté malagasy.
-</Text>
+        <Text style={styles.tagline}>
+          Découvrez, partagez et faites grandir
+          les talents et les bonnes affaires
+          de la communauté malagasy.
+        </Text>
 
-<Text style={styles.text2}>
-  Mandrosoa tompoko ô !
-</Text>
+        <Text style={styles.text2}>
+          Mandrosoa tompoko ô !
+        </Text>
 
         <TouchableOpacity
           style={styles.button}
@@ -58,7 +58,7 @@ export default function HomeScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.forgotPassword}
-          onPress={() => navigation.navigate("SignIn")}
+          onPress={() => navigation.navigate("ForgotPassword")}
           activeOpacity={0.8}
         >
           <Text style={styles.pressableText}>
@@ -102,20 +102,21 @@ const styles = StyleSheet.create({
   },
 
   text2: {
-  fontSize: RFPercentage(2.6),
-  color: "#66CC00",
-  fontWeight: "400",
-  textAlign: "center",
-},
+    fontSize: RFPercentage(2.6),
+    color: "#66CC00",
+    fontWeight: "400",
+    textAlign: "center",
+  },
 
-tagline: {
-  fontSize: RFPercentage(2.1),
-  color: "#FFFFFF",
-  textAlign: "center",
-  lineHeight: RFPercentage(3.1),
-  paddingHorizontal: 8,
-  fontWeight: "400",
-},
+  tagline: {
+    fontSize: RFPercentage(2.1),
+    color: "#FFFFFF",
+    textAlign: "center",
+    lineHeight: RFPercentage(3.1),
+    paddingHorizontal: 8,
+    fontWeight: "400",
+  },
+
   button: {
     width: "100%",
     minHeight: 56,

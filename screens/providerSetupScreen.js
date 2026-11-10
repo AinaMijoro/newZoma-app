@@ -461,7 +461,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
           showDialog(
             "Nom commercial non enregistré",
             merchantData.message ||
-              "Impossible d'enregistrer ton nom commercial.",
+            "Impossible d'enregistrer ton nom commercial.",
           );
           return;
         }
@@ -487,10 +487,9 @@ export default function ProviderSetupScreen({ route, navigation }) {
 
           showDialog(
             "Enregistrement interrompu",
-            `L'activité « ${activityData.specialty} » n'a pas pu être enregistrée. ${
-              createdActivityIds.length > 0
-                ? `${createdActivityIds.length} activité(s) précédente(s) ont déjà été enregistrées.`
-                : data.message || "Réessaie plus tard."
+            `L'activité « ${activityData.specialty} » n'a pas pu être enregistrée. ${createdActivityIds.length > 0
+              ? `${createdActivityIds.length} activité(s) précédente(s) ont déjà été enregistrées.`
+              : data.message || "Réessaie plus tard."
             }`,
           );
           return;
@@ -528,7 +527,7 @@ export default function ProviderSetupScreen({ route, navigation }) {
       showDialog(
         "Erreur",
         error.message ||
-          "Impossible de joindre le serveur. Vérifie que le backend fonctionne.",
+        "Impossible de joindre le serveur. Vérifie que le backend fonctionne.",
       );
     } finally {
       setLoading(false);
@@ -547,6 +546,16 @@ export default function ProviderSetupScreen({ route, navigation }) {
           style={styles.logo}
           resizeMode="contain"
         />
+        <TouchableOpacity
+          style={styles.backToSpaceButton}
+          onPress={() => navigation.navigate("MerchantTabs")}
+          disabled={loading}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.backToSpaceButtonText}>
+            ← Retour à mon espace
+          </Text>
+        </TouchableOpacity>
 
         <Text style={styles.title}>
           {isEditing ? "Modifier mon activité" : "Présente ton activité"}
@@ -1072,5 +1081,22 @@ const styles = StyleSheet.create({
   },
   dialogSecondaryText: {
     color: "#333333",
+  },
+  backToSpaceButton: {
+    width: "100%",
+    minHeight: 48,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#CDAB82",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    padding: 10,
+  },
+  backToSpaceButtonText: {
+    color: "#003300",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });

@@ -1,4 +1,5 @@
-import React from "react";
+
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -40,12 +41,27 @@ const categories = [
 
 export default function SearchHomeScreen({ navigation, route }) {
   const token = route.params?.token;
+  const [searchTerm, setSearchTerm] = useState("");
+
+  function launchSearch() {
+    const keyword = searchTerm.trim();
+
+    if (!keyword) {
+      return;
+    }
+
+    navigation.navigate("Providers", {
+      searchTerm: keyword,
+      token,
+    });
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <Image
           source={require("../assets/logo_paysage.png")}
@@ -58,8 +74,21 @@ export default function SearchHomeScreen({ navigation, route }) {
             style={styles.searchInput}
             placeholder="Que recherchez-vous ?"
             placeholderTextColor="#888888"
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            onSubmitEditing={launchSearch}
+            returnKeyType="search"
+            autoCapitalize="none"
           />
-          <Ionicons name="search-outline" size={22} color="#003300" />
+
+          <TouchableOpacity
+            onPress={launchSearch}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Lancer la recherche"
+          >
+            <Ionicons name="search-outline" size={24} color="#003300" />
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.sectionTitle}>Les plus recherchés</Text>

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Zoma",
     "slug": "zoma",
+    "scheme": "zoma",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",

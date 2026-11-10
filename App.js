@@ -13,6 +13,8 @@ import { CartProvider } from "./context/CartContext";
 import HomeScreen from "./screens/homeScreen";
 import SignUpScreen from "./screens/signUpScreen";
 import SignInScreen from "./screens/signInScreen";
+import ForgotPasswordScreen from "./screens/forgotPasswordScreen";
+import ResetPasswordScreen from "./screens/resetPasswordScreen";
 import ProfileChoiceScreen from "./screens/profileChoiceScreen";
 import ProviderSetupScreen from "./screens/providerSetupScreen";
 import SearchHomeScreen from "./screens/searchHomeScreen";
@@ -33,6 +35,21 @@ import ChatScreen from "./screens/ChatScreen";
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const SearchStack = createNativeStackNavigator();
+
+// Configuration des liens profonds
+const linking = {
+  prefixes: ["zoma://"],
+  config: {
+    screens: {
+      ResetPassword: {
+        path: "reset-password",
+        parse: {
+          token: (token) => token,
+        },
+      },
+    },
+  },
+};
 
 // Écran provisoire
 function ComingSoonScreen({ route }) {
@@ -78,6 +95,7 @@ function ProspectSearchStack({ route }) {
         component={ProductsScreen}
         options={{ title: "Nos offres" }}
       />
+
       <SearchStack.Screen
         name="Chat"
         component={ChatScreen}
@@ -90,7 +108,6 @@ function ProspectSearchStack({ route }) {
 }
 
 // Navigation Marchand
-
 function MerchantTabs({ route }) {
   const accountParams = route.params || {};
 
@@ -228,6 +245,7 @@ function ProspectTabs({ route }) {
           ),
         }}
       />
+
       <Tab.Screen
         name="ProspectSearch"
         component={ProspectSearchStack}
@@ -304,7 +322,7 @@ function ProspectTabs({ route }) {
 export default function App() {
   return (
     <CartProvider>
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <Stack.Navigator initialRouteName="Home">
           <Stack.Screen
             name="Home"
@@ -316,6 +334,18 @@ export default function App() {
             name="SignIn"
             component={SignInScreen}
             options={{ title: "Se connecter" }}
+          />
+
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{ title: "Mot de passe oublié" }}
+          />
+
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{ title: "Nouveau mot de passe" }}
           />
 
           <Stack.Screen
