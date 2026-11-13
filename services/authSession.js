@@ -1,5 +1,6 @@
 
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import API_URL from "../config/api";
 
 const SESSION_KEY = "zoma_session";
@@ -8,15 +9,33 @@ let refreshPromise = null;
 
 // Enregistrer la session
 export async function saveSession(session) {
-  await SecureStore.setItemAsync(
-    SESSION_KEY,
-    JSON.stringify(session)
-  );
+  const value = JSON.stringify(session);
+
+  if (Platform.OS === "web") {
+    if (typeof localStorage === "undefined") {
+      throw new Error("Stockage local indisponible sur le Web.");
+    }
+
+    localStorage.setItem(SESSION_KEY, value);
+    return;
+  }
+
+  await SecureStore.setItemAsync(SESSION_KEY, value);
 }
 
 // Lire la session
 export async function getSession() {
-  const value = await SecureStore.getItemAsync(SESSION_KEY);
+  let value;
+
+  if (Platform.OS === "web") {
+    if (typeof localStorage === "undefined") {
+      return null;
+    }
+
+    value = localStorage.getItem(SESSION_KEY);
+  } else {
+    value = await SecureStore.getItemAsync(SESSION_KEY);
+  }
 
   if (!value) return null;
 
@@ -30,6 +49,13 @@ export async function getSession() {
 
 // Supprimer la session locale
 export async function clearSession() {
+  if (Platform.OS === "web") {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(SESSION_KEY);
+    }
+    return;
+  }
+
   await SecureStore.deleteItemAsync(SESSION_KEY);
 }
 
