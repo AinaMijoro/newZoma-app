@@ -139,7 +139,7 @@ export default function CartScreen({ route, navigation }) {
         if (!response.ok) {
           throw new Error(
             data.message ||
-              `Impossible d'envoyer la commande pour ${group.activityName}.`,
+            `Impossible d'envoyer la commande pour ${group.activityName}.`,
           );
         }
       }
@@ -167,7 +167,7 @@ export default function CartScreen({ route, navigation }) {
       showDialog(
         "Erreur",
         error.message ||
-          "Une erreur est survenue lors de l'envoi des commandes.",
+        "Une erreur est survenue lors de l'envoi des commandes.",
       );
 
       // Le verrou reste actif pour éviter les doublons
@@ -183,17 +183,21 @@ export default function CartScreen({ route, navigation }) {
       return;
     }
 
-    showDialog("Retirer le produit", `Retirer ${item.name} du panier ?`, [
-      {
-        text: "Annuler",
-        style: "secondary",
-      },
-      {
-        text: "Retirer",
-        style: "danger",
-        onPress: () => removeFromCart(item.productId, item.activityId),
-      },
-    ]);
+    showDialog(
+      "Retirer le produit",
+      `Voulez-vous vraiment retirer "${item.name}" de votre panier ?`,
+      [
+        {
+          text: "Annuler",
+          style: "secondary",
+        },
+        {
+          text: "Retirer",
+          style: "danger",
+          onPress: () => removeFromCart(item.productId, item.activityId),
+        },
+      ]
+    );
   }
 
   // Afficher un produit
@@ -225,9 +229,17 @@ export default function CartScreen({ route, navigation }) {
           <TouchableOpacity
             style={styles.quantityButton}
             disabled={submitting}
-            onPress={() =>
-              updateQuantity(item.productId, item.activityId, item.quantity - 1)
-            }
+            onPress={() => {
+              if (item.quantity <= 1) {
+                handleRemoveProduct(item);
+              } else {
+                updateQuantity(
+                  item.productId,
+                  item.activityId,
+                  item.quantity - 1
+                );
+              }
+            }}
           >
             <Text style={styles.quantityButtonText}>−</Text>
           </TouchableOpacity>
@@ -361,7 +373,7 @@ export default function CartScreen({ route, navigation }) {
                   style={[
                     styles.dialogButton,
                     button.style === "secondary" &&
-                      styles.dialogSecondaryButton,
+                    styles.dialogSecondaryButton,
                     button.style === "danger" && styles.dialogDangerButton,
                   ]}
                   onPress={() => handleDialogButton(button)}
@@ -371,9 +383,9 @@ export default function CartScreen({ route, navigation }) {
                     style={[
                       styles.dialogButtonText,
                       button.style === "secondary" &&
-                        styles.dialogSecondaryButtonText,
+                      styles.dialogSecondaryButtonText,
                       button.style === "danger" &&
-                        styles.dialogDangerButtonText,
+                      styles.dialogDangerButtonText,
                     ]}
                   >
                     {button.text}

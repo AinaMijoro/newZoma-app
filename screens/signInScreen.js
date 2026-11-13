@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import API_URL from "../config/api";
+import { saveSession } from "../services/authSession";
 
 export default function SignInScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -98,13 +99,29 @@ export default function SignInScreen({ navigation }) {
         showDialog(
           "Connexion impossible",
           data.message ||
-            "Vérifiez votre adresse e-mail et votre mot de passe.",
+          "Vérifiez votre adresse e-mail et votre mot de passe.",
         );
         return;
       }
 
       const user = data.user;
       const token = data.token;
+      const refreshToken = data.refreshToken;
+
+      if (!token || !refreshToken || !user) {
+        showDialog(
+          "Erreur de connexion",
+          "Le serveur n'a pas renvoyé toutes les informations nécessaires. Réessayez.",
+        );
+        return;
+      }
+
+      // Enregistrer les tokens de manière sécurisée
+      await saveSession({
+        token,
+        refreshToken,
+        user,
+      });
 
       if (user.role === "admin") {
         navigation.navigate("AdminActivities", { token });

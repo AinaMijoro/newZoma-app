@@ -93,7 +93,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
   }
 
   const loadOrders = useCallback(
-    async (isRefresh = false) => {
+    async (isRefresh = false, showErrors = true) => {
       if (!token) {
         setLoading(false);
         showDialog(
@@ -133,11 +133,16 @@ export default function MerchantOrdersScreen({ navigation, route }) {
 
         setOrders(Array.isArray(data) ? data : []);
       } catch (error) {
-        showDialog("Erreur", error.message);
+        if (showErrors) {
+          showDialog("Erreur", error.message);
+        }
+        return false;
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
+
+      return true;
     },
     [token],
   );
@@ -245,20 +250,30 @@ export default function MerchantOrdersScreen({ navigation, route }) {
           );
         }
 
+        // Ferme d'abord la modale des détails.
         setSelectedOrder(null);
 
-        showDialog("Succès", "Le statut de la commande a été mis à jour.");
+        // Actualise la liste sans afficher une deuxième alerte.
+        await loadOrders(false, false);
 
-        await loadOrders();
+        // Attend la fermeture de la première modale.
+        setTimeout(() => {
+          showDialog(
+            "Succès",
+            "Le statut de la commande a été mis à jour.",
+          );
+        }, 400);
       } catch (error) {
-        showDialog("Erreur", error.message);
+        setSelectedOrder(null);
+
+        setTimeout(() => {
+          showDialog("Erreur", error.message);
+        }, 400);
       } finally {
         setUpdating(false);
       }
     }
-  }
-
-  function renderOrder({ item }) {
+  }  function renderOrder({ item }) {
     const status = STATUS[item.status] || {
       label: "Statut inconnu",
       color: "#666666",
@@ -347,11 +362,11 @@ export default function MerchantOrdersScreen({ navigation, route }) {
 
     return (
       <Modal
-        visible={!!selectedOrder}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedOrder(null)}
-      >
+  visible={!!selectedOrder && !dialog.visible}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setSelectedOrder(null)}
+>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -550,9 +565,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
         </View>
       </Modal>
     );
-  }
-
-  return (
+  }  return (
     <SafeAreaView style={styles.container}>
       <FlatList
         data={orders}
@@ -659,9 +672,7 @@ export default function MerchantOrdersScreen({ navigation, route }) {
       </Modal>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
+}const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#003300",

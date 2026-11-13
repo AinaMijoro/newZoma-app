@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   StyleSheet,
@@ -17,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { RFPercentage } from "react-native-responsive-fontsize";
 import API_URL from "../config/api";
+import { saveSession } from "../services/authSession";
 
 export default function SignUpScreen({ navigation }) {
   const [name, setName] = useState("");
@@ -49,7 +51,10 @@ export default function SignUpScreen({ navigation }) {
     }
 
     if (password.length < 8) {
-      showDialog("Mot de passe trop court", "Utilise au moins 8 caractères.");
+      showDialog(
+        "Mot de passe trop court",
+        "Utilise au moins 8 caractères."
+      );
       return;
     }
 
@@ -73,19 +78,41 @@ export default function SignUpScreen({ navigation }) {
       if (!response.ok) {
         showDialog(
           "Inscription impossible",
-          data.message || "Une erreur est survenue.",
+          data.message || "Une erreur est survenue."
         );
         return;
       }
 
-      navigation.navigate("ProfileChoice", {
-        userId: data.user.id,
-        token: data.token,
+      const user = data.user;
+      const token = data.token;
+      const refreshToken = data.refreshToken;
+
+      // Vérifier les informations retournées par le backend
+      if (!user || !token || !refreshToken) {
+        showDialog(
+          "Erreur d'inscription",
+          "Le serveur n'a pas renvoyé toutes les informations nécessaires. Réessaie."
+        );
+        return;
+      }
+
+      // Enregistrer les tokens de manière sécurisée
+      await saveSession({
+        token,
+        refreshToken,
+        user,
       });
+
+      // Rediriger vers le choix du profil
+      navigation.navigate("ProfileChoice", {
+        userId: user.id,
+        token,
+      });
+
     } catch (error) {
       showDialog(
         "Erreur de connexion",
-        "Impossible de joindre le serveur. Vérifie que le backend est lancé.",
+        "Impossible de joindre le serveur. Vérifie que le backend est lancé."
       );
     } finally {
       setLoading(false);
@@ -131,7 +158,6 @@ export default function SignUpScreen({ navigation }) {
             onChangeText={setEmail}
           />
 
-          {/* Champ mot de passe avec bouton afficher/masquer */}
           <View style={styles.passwordContainer}>
             <TextInput
               style={styles.passwordInput}
@@ -145,7 +171,9 @@ export default function SignUpScreen({ navigation }) {
 
             <TouchableOpacity
               style={styles.eyeButton}
-              onPress={() => setShowPassword((previous) => !previous)}
+              onPress={() =>
+                setShowPassword((previous) => !previous)
+              }
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={
@@ -155,7 +183,11 @@ export default function SignUpScreen({ navigation }) {
               }
             >
               <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                name={
+                  showPassword
+                    ? "eye-off-outline"
+                    : "eye-outline"
+                }
                 size={23}
                 color="#003300"
               />
@@ -163,7 +195,10 @@ export default function SignUpScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.disabledButton]}
+            style={[
+              styles.button,
+              loading && styles.disabledButton,
+            ]}
             onPress={handleSignUp}
             disabled={loading}
             activeOpacity={0.8}
@@ -171,7 +206,9 @@ export default function SignUpScreen({ navigation }) {
             {loading ? (
               <ActivityIndicator color="#003300" />
             ) : (
-              <Text style={styles.buttonText}>Créer mon compte</Text>
+              <Text style={styles.buttonText}>
+                Créer mon compte
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -185,12 +222,21 @@ export default function SignUpScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.dialogBox}>
-            <Text style={styles.dialogTitle}>{dialog.title}</Text>
+            <Text style={styles.dialogTitle}>
+              {dialog.title}
+            </Text>
 
-            <Text style={styles.dialogMessage}>{dialog.message}</Text>
+            <Text style={styles.dialogMessage}>
+              {dialog.message}
+            </Text>
 
-            <Pressable style={styles.dialogButton} onPress={closeDialog}>
-              <Text style={styles.dialogButtonText}>OK</Text>
+            <Pressable
+              style={styles.dialogButton}
+              onPress={closeDialog}
+            >
+              <Text style={styles.dialogButtonText}>
+                OK
+              </Text>
             </Pressable>
           </View>
         </View>
