@@ -2,6 +2,9 @@
   "name": "newzoma",
   "version": "1.0.0",
   "main": "node_modules/expo/AppEntry.js",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",

@@ -173,9 +173,11 @@ export default function SignInScreen({ navigation }) {
         token,
       });
     } catch (error) {
+      console.error("ERREUR CONNEXION ZOMA :", error);
+
       showDialog(
-        "Erreur réseau",
-        "Impossible de contacter le serveur. Vérifiez que le backend fonctionne et réessayez.",
+        "Erreur détectée",
+        error?.message || String(error),
       );
     } finally {
       setLoading(false);
