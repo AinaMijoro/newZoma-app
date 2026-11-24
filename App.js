@@ -36,6 +36,7 @@ import MonCompteScreen from "./screens/monCompteScreen";
 import ProspectFavoritesScreen from "./screens/ProspectFavoritesScreen";
 import MessagesStack from "./navigation/MessagesStack";
 import ChatScreen from "./screens/ChatScreen";
+import { getSession, refreshSession } from "./services/authSession";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -150,8 +151,37 @@ function ProspectSearchStack({ route }) {
   );
 }
 // Gère les notifications en temps réel (nouvelles commandes, changements de statut et nouveaux messages) pour l'utilisateur connecté.
-function NotificationLayer({ token, children }) {
-  const [notification, setNotification] = useState(null);
+
+
+function NotificationLayer({ children }) {
+  const [token, setToken] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSession() {
+      try {
+        let session = await getSession();
+
+        if (!session?.token) {
+          session = await refreshSession();
+        }
+
+        if (active && session?.token) {
+          setToken(session.token);
+        }
+      } catch (error) {
+        console.log("Erreur récupération session :", error.message);
+      }
+    }
+
+    loadSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -161,24 +191,26 @@ function NotificationLayer({ token, children }) {
       transports: ["websocket"],
     });
 
-    let timeout;
+    const showNotification = (title, message, type, data = {}) => {
+      const id = `${Date.now()}-${Math.random()}`;
 
-    const showNotification = (title, message) => {
-      setNotification({ title, message });
-
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        setNotification(null);
-      }, 4000);
+      setNotifications((previous) => [
+        ...previous,
+        { id, title, message, type, data },
+      ]);
     };
 
+    // Nouvelle commande
     socket.on("newOrder", (data) => {
       showNotification(
         "Nouvelle commande",
-        `${data.prospectName || "Un client"} vous a envoyé une commande.`
+        `${data.prospectName || "Un client"} vous a envoyé une commande.`,
+        "order",
+        data
       );
     });
 
+    // Mise à jour d'une commande
     socket.on("orderStatusUpdated", (data) => {
       const messages = {
         accepted: "Votre commande a été acceptée.",
@@ -188,15 +220,26 @@ function NotificationLayer({ token, children }) {
 
       showNotification(
         "Mise à jour de commande",
-        messages[data.status] || `Statut : ${data.status}`
+        messages[data.status] || `Statut : ${data.status}`,
+        "order",
+        data
       );
     });
 
+    // Nouveau message
     socket.on("newMessageNotification", (data) => {
+      console.log("NOTIFICATION MESSAGE REÇUE :", data);
+
       showNotification(
         "Nouveau message",
-        data.content || "Vous avez reçu un nouveau message."
+        data.content || "Vous avez reçu un nouveau message.",
+        "message",
+        data
       );
+    });
+
+    socket.on("connect", () => {
+      console.log("Socket notifications connecté");
     });
 
     socket.on("connect_error", (error) => {
@@ -204,7 +247,6 @@ function NotificationLayer({ token, children }) {
     });
 
     return () => {
-      clearTimeout(timeout);
       socket.disconnect();
     };
   }, [token]);
@@ -213,33 +255,58 @@ function NotificationLayer({ token, children }) {
     <View style={{ flex: 1 }}>
       {children}
 
-      {notification && (
+
+      {notifications.map((notification, index) => (
         <Pressable
-          onPress={() => setNotification(null)}
+          key={notification.id}
+          onPress={() => {
+            setNotifications((previous) =>
+              previous.filter((item) => item.id !== notification.id)
+            );
+          }}
           style={{
             position: "absolute",
-            top: 10,
+            top: 10 + index * 105,
             left: 16,
             right: 16,
-            zIndex: 999,
-            elevation: 8,
+            zIndex: 999 + index,
+            elevation: 8 + index,
             backgroundColor: "#222",
             padding: 16,
             borderRadius: 12,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "bold", marginBottom: 5 }}>
+          <Text
+            style={{
+              color: "#fff",
+              fontWeight: "bold",
+              marginBottom: 5,
+            }}
+          >
             {notification.title}
           </Text>
 
           <Text style={{ color: "#fff" }}>
             {notification.message}
           </Text>
+
+          <Text
+            style={{
+              color: "#aaa",
+              marginTop: 8,
+              fontSize: 12,
+            }}
+          >
+            Appuyez pour fermer
+          </Text>
         </Pressable>
-      )}
+      ))}
+
     </View>
   );
 }
+
+
 // Navigation Marchand
 function MerchantTabs({ route }) {
   const accountParams = route.params || {};
@@ -450,84 +517,87 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <CartProvider>
-        <NavigationContainer linking={linking}>
-          <Stack.Navigator initialRouteName="Home">
-            <Stack.Screen
-              name="Home"
-              component={HomeScreen}
-              options={{ headerShown: false }}
-            />
+        <NotificationLayer>
+          <NavigationContainer linking={linking}>
+            <Stack.Navigator initialRouteName="Home">
+              <Stack.Screen
+                name="Home"
+                component={HomeScreen}
+                options={{ headerShown: false }}
+              />
 
-            <Stack.Screen
-              name="SignIn"
-              component={SignInScreen}
-              options={{ title: "Se connecter" }}
-            />
+              <Stack.Screen
+                name="SignIn"
+                component={SignInScreen}
+                options={{ title: "Se connecter" }}
+              />
 
-            <Stack.Screen
-              name="ForgotPassword"
-              component={ForgotPasswordScreen}
-              options={{ title: "Mot de passe oublié" }}
-            />
+              <Stack.Screen
+                name="ForgotPassword"
+                component={ForgotPasswordScreen}
+                options={{ title: "Mot de passe oublié" }}
+              />
 
-            <Stack.Screen
-              name="ResetPassword"
-              component={ResetPasswordScreen}
-              options={{ title: "Nouveau mot de passe" }}
-            />
+              <Stack.Screen
+                name="ResetPassword"
+                component={ResetPasswordScreen}
+                options={{ title: "Nouveau mot de passe" }}
+              />
 
-            <Stack.Screen
-              name="signup"
-              component={SignUpScreen}
-              options={{ title: "Créer un compte" }}
-            />
+              <Stack.Screen
+                name="signup"
+                component={SignUpScreen}
+                options={{ title: "Créer un compte" }}
+              />
 
-            <Stack.Screen
-              name="ProfileChoice"
-              component={ProfileChoiceScreen}
-              options={{ title: "Choisir mon profil" }}
-            />
+              <Stack.Screen
+                name="ProfileChoice"
+                component={ProfileChoiceScreen}
+                options={{ title: "Choisir mon profil" }}
+              />
 
-            <Stack.Screen
-              name="ProviderSetup"
-              component={ProviderSetupScreen}
-              options={{ title: "Mon activité" }}
-            />
+              <Stack.Screen
+                name="ProviderSetup"
+                component={ProviderSetupScreen}
+                options={{ title: "Mon activité" }}
+              />
 
-            <Stack.Screen
-              name="MerchantTabs"
-              component={MerchantTabs}
-              options={{ headerShown: false }}
-            />
+              <Stack.Screen
+                name="MerchantTabs"
+                component={MerchantTabs}
+                options={{ headerShown: false }}
+              />
 
-            <Stack.Screen
-              name="ProspectTabs"
-              component={ProspectTabs}
-              options={{ headerShown: false }}
-            />
+              <Stack.Screen
+                name="ProspectTabs"
+                component={ProspectTabs}
+                options={{ headerShown: false }}
+              />
 
-            <Stack.Screen
-              name="AdminActivities"
-              component={AdminActivitiesScreen}
-              options={{
-                title: "Administration des activités",
-                animation: "default",
-              }}
-            />
+              <Stack.Screen
+                name="AdminActivities"
+                component={AdminActivitiesScreen}
+                options={{
+                  title: "Administration des activités",
+                  animation: "default",
+                }}
+              />
 
-            <Stack.Screen
-              name="Offers"
-              component={OffersScreen}
-              options={{ title: "Mes offres" }}
-            />
+              <Stack.Screen
+                name="Offers"
+                component={OffersScreen}
+                options={{ title: "Mes offres" }}
+              />
 
-            <Stack.Screen
-              name="Cart"
-              component={CartScreen}
-              options={{ title: "Mon panier" }}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
+              <Stack.Screen
+                name="Cart"
+                component={CartScreen}
+                options={{ title: "Mon panier" }}
+              />
+            </Stack.Navigator>
+
+          </NavigationContainer>
+        </NotificationLayer>
       </CartProvider>
     </SafeAreaProvider>
   );
