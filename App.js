@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { io } from "socket.io-client";
-import API_URL from "../config/api";
+import API_URL from "./config/api";
 
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
