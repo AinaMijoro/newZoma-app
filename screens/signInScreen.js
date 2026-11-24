@@ -23,6 +23,7 @@ export default function SignInScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowLoading, setSlowLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [dialog, setDialog] = useState({
@@ -79,8 +80,15 @@ export default function SignInScreen({ navigation }) {
       return;
     }
 
-    try {
-      setLoading(true);
+    let slowLoadingTimer;
+
+try {
+  setLoading(true);
+  setSlowLoading(false);
+
+  slowLoadingTimer = setTimeout(() => {
+    setSlowLoading(true);
+  }, 3000);
 
       const response = await fetch(`${API_URL}/users/login`, {
         method: "POST",
@@ -179,9 +187,11 @@ export default function SignInScreen({ navigation }) {
         "Erreur détectée",
         error?.message || String(error),
       );
-    } finally {
-      setLoading(false);
-    }
+   } finally {
+  clearTimeout(slowLoadingTimer);
+  setLoading(false);
+  setSlowLoading(false);
+}
   }
 
   function handleDialogButton(button) {
@@ -268,7 +278,15 @@ export default function SignInScreen({ navigation }) {
               <Text style={styles.buttonText}>Se connecter</Text>
             )}
           </TouchableOpacity>
-
+          {slowLoading && loading && (
+            <View style={styles.waitingMessage}>
+              <Text style={styles.waitingMessageText}>
+                Le serveur est en train de démarrer.
+                Cela peut prendre quelques instants.
+                Merci de patienter, Zoma arrive !
+              </Text>
+            </View>
+          )}
           <TouchableOpacity
             onPress={() =>
               showDialog(
@@ -505,4 +523,16 @@ const styles = StyleSheet.create({
   dialogSecondaryText: {
     color: "#333333",
   },
+  waitingMessage: {
+  width: "100%",
+  marginTop: 12,
+  paddingHorizontal: 10,
+},
+
+waitingMessageText: {
+  color: "#FFFFFF",
+  fontSize: RFPercentage(1.8),
+  textAlign: "center",
+  lineHeight: 22,
+},
 });

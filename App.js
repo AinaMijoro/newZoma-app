@@ -1,6 +1,8 @@
 
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { io } from "socket.io-client";
+import API_URL from "../config/api";
 
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -147,7 +149,97 @@ function ProspectSearchStack({ route }) {
     </SearchStack.Navigator>
   );
 }
+// Gère les notifications en temps réel (nouvelles commandes, changements de statut et nouveaux messages) pour l'utilisateur connecté.
+function NotificationLayer({ token, children }) {
+  const [notification, setNotification] = useState(null);
 
+  useEffect(() => {
+    if (!token) return;
+
+    const socket = io(API_URL, {
+      auth: { token },
+      transports: ["websocket"],
+    });
+
+    let timeout;
+
+    const showNotification = (title, message) => {
+      setNotification({ title, message });
+
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+    };
+
+    socket.on("newOrder", (data) => {
+      showNotification(
+        "Nouvelle commande",
+        `${data.prospectName || "Un client"} vous a envoyé une commande.`
+      );
+    });
+
+    socket.on("orderStatusUpdated", (data) => {
+      const messages = {
+        accepted: "Votre commande a été acceptée.",
+        rejected: "Votre commande a été refusée.",
+        completed: "Votre commande est terminée.",
+      };
+
+      showNotification(
+        "Mise à jour de commande",
+        messages[data.status] || `Statut : ${data.status}`
+      );
+    });
+
+    socket.on("newMessageNotification", (data) => {
+      showNotification(
+        "Nouveau message",
+        data.content || "Vous avez reçu un nouveau message."
+      );
+    });
+
+    socket.on("connect_error", (error) => {
+      console.log("Erreur Socket.IO notifications :", error.message);
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      socket.disconnect();
+    };
+  }, [token]);
+
+  return (
+    <View style={{ flex: 1 }}>
+      {children}
+
+      {notification && (
+        <Pressable
+          onPress={() => setNotification(null)}
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 16,
+            right: 16,
+            zIndex: 999,
+            elevation: 8,
+            backgroundColor: "#222",
+            padding: 16,
+            borderRadius: 12,
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "bold", marginBottom: 5 }}>
+            {notification.title}
+          </Text>
+
+          <Text style={{ color: "#fff" }}>
+            {notification.message}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
 // Navigation Marchand
 function MerchantTabs({ route }) {
   const accountParams = route.params || {};

@@ -25,6 +25,7 @@ export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowLoading, setSlowLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [dialog, setDialog] = useState({
@@ -58,8 +59,16 @@ export default function SignUpScreen({ navigation }) {
       return;
     }
 
+    
+    let slowLoadingTimer;
+
     try {
       setLoading(true);
+      setSlowLoading(false);
+
+      slowLoadingTimer = setTimeout(() => {
+        setSlowLoading(true);
+      }, 3000);
 
       const response = await fetch(`${API_URL}/users/register`, {
         method: "POST",
@@ -87,7 +96,6 @@ export default function SignUpScreen({ navigation }) {
       const token = data.token;
       const refreshToken = data.refreshToken;
 
-      // Vérifier les informations retournées par le backend
       if (!user || !token || !refreshToken) {
         showDialog(
           "Erreur d'inscription",
@@ -96,14 +104,12 @@ export default function SignUpScreen({ navigation }) {
         return;
       }
 
-      // Enregistrer les tokens de manière sécurisée
       await saveSession({
         token,
         refreshToken,
         user,
       });
 
-      // Rediriger vers le choix du profil
       navigation.navigate("ProfileChoice", {
         userId: user.id,
         token,
@@ -115,7 +121,9 @@ export default function SignUpScreen({ navigation }) {
         "Impossible de joindre le serveur. Vérifie que le backend est lancé."
       );
     } finally {
+      clearTimeout(slowLoadingTimer);
       setLoading(false);
+      setSlowLoading(false);
     }
   }
 
@@ -211,6 +219,15 @@ export default function SignUpScreen({ navigation }) {
               </Text>
             )}
           </TouchableOpacity>
+          {slowLoading && loading && (
+  <View style={styles.waitingMessage}>
+    <Text style={styles.waitingMessageText}>
+      Le serveur est en train de démarrer.
+      Cela peut prendre quelques instants.
+      Merci de patienter, Zoma arrive !
+    </Text>
+  </View>
+)}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -369,4 +386,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  waitingMessage: {
+  width: "100%",
+  marginTop: 12,
+  paddingHorizontal: 10,
+},
+
+waitingMessageText: {
+  color: "#FFFFFF",
+  fontSize: RFPercentage(1.8),
+  textAlign: "center",
+  lineHeight: 22,
+},
 });
