@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -10,7 +11,11 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { StackActions } from "@react-navigation/native";
+import {
+  StackActions,
+  CommonActions,
+} from "@react-navigation/native";
+import { clearSession } from "../services/authSession";
 
 export default function MonCompteScreen({ route, navigation }) {
   const {
@@ -29,6 +34,7 @@ export default function MonCompteScreen({ route, navigation }) {
     visible: false,
     title: "",
     message: "",
+    isLogout: false,
   });
 
   function showDialog(title, message) {
@@ -36,6 +42,7 @@ export default function MonCompteScreen({ route, navigation }) {
       visible: true,
       title,
       message,
+      isLogout: false,
     });
   }
 
@@ -44,6 +51,44 @@ export default function MonCompteScreen({ route, navigation }) {
       ...previous,
       visible: false,
     }));
+  }
+
+  function showLogoutConfirmation() {
+    setDialog({
+      visible: true,
+      title: "Déconnexion",
+      message: "Voulez-vous vraiment vous déconnecter ?",
+      isLogout: true,
+    });
+  }
+
+  async function handleLogout() {
+    try {
+      // Supprimer la session enregistrée
+      await clearSession();
+
+      // Retrouver le navigateur principal
+      let rootNavigation = navigation;
+
+      while (rootNavigation.getParent()) {
+        rootNavigation = rootNavigation.getParent();
+      }
+
+      // Revenir à Home en supprimant l'historique privé
+      rootNavigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Home" }],
+        }),
+      );
+    } catch (error) {
+      console.log("Erreur lors de la déconnexion :", error);
+      closeDialog();
+      showDialog(
+        "Erreur",
+        "La déconnexion n'a pas pu être effectuée. Réessayez.",
+      );
+    }
   }
 
   function switchSpace(space) {
@@ -55,7 +100,8 @@ export default function MonCompteScreen({ route, navigation }) {
       return;
     }
 
-    const destination = space === "propose" ? "MerchantTabs" : "ProspectTabs";
+    const destination =
+      space === "propose" ? "MerchantTabs" : "ProspectTabs";
 
     const parentNavigation = navigation.getParent();
 
@@ -102,7 +148,9 @@ export default function MonCompteScreen({ route, navigation }) {
             <View style={styles.separator} />
 
             <Text style={styles.label}>Nom commercial</Text>
-            <Text style={styles.value}>{merchantName || "Non renseigné"}</Text>
+            <Text style={styles.value}>
+              {merchantName || "Non renseigné"}
+            </Text>
 
             <View style={styles.separator} />
 
@@ -136,7 +184,9 @@ export default function MonCompteScreen({ route, navigation }) {
               onPress={() => switchSpace("cherche")}
               activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>Accéder à l'espace Prospect</Text>
+              <Text style={styles.buttonText}>
+                Accéder à l'espace Prospect
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -149,9 +199,20 @@ export default function MonCompteScreen({ route, navigation }) {
               onPress={() => switchSpace("propose")}
               activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>Accéder à l'espace Marchand</Text>
+              <Text style={styles.buttonText}>
+                Accéder à l'espace Marchand
+              </Text>
             </TouchableOpacity>
           )}
+
+          {/* Bouton de déconnexion */}
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={showLogoutConfirmation}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.logoutButtonText}>Se déconnecter</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -170,13 +231,33 @@ export default function MonCompteScreen({ route, navigation }) {
 
             <Text style={styles.dialogMessage}>{dialog.message}</Text>
 
-            <TouchableOpacity
-              style={styles.dialogButton}
-              onPress={closeDialog}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.dialogButtonText}>OK</Text>
-            </TouchableOpacity>
+            {dialog.isLogout ? (
+              <View style={styles.confirmButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={closeDialog}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.cancelButtonText}>Non</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={handleLogout}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.confirmButtonText}>Oui</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.dialogButton}
+                onPress={closeDialog}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogButtonText}>OK</Text>
+              </TouchableOpacity>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -304,6 +385,24 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
 
+  logoutButton: {
+    width: "100%",
+    minHeight: 54,
+    backgroundColor: "#B3261E",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  logoutButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.55)",
@@ -336,6 +435,40 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: "center",
     marginBottom: 20,
+  },
+
+  confirmButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#E8E8E8",
+    paddingVertical: 12,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+
+  cancelButtonText: {
+    color: "#333333",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+
+  confirmButton: {
+    flex: 1,
+    backgroundColor: "#B3261E",
+    paddingVertical: 12,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+
+  confirmButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "bold",
   },
 
   dialogButton: {
